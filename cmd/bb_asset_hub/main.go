@@ -2,13 +2,16 @@ package main
 
 import (
 	"log"
-	"os"
 	"net/http"
+	"os"
 	"time"
 
-
+	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
+	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
+	"github.com/buildbarn/bb-asset-hub/pkg/push"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
@@ -44,13 +47,31 @@ func main() {
 		log.Fatal("Failed to apply global configuration options: ", err)
 	}
 
-	// Initialize CAS storage access
 	grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
-	contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-		config.ContentAddressableStorage,
+	//	// Initialize CAS storage access
+	//
+	//	contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+	//		config.ContentAddressableStorage,
+	//		blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
+	//	if err != nil {
+	//		log.Fatal("Failed to create blob access: ", err)
+	//	}
+
+	// Initialize the asset storage. Not actually a CAS, but the blob access is digest-addressed.
+	assetCache, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+		config.ReferenceStore,
 		blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
+	}
+
+	allowUpdatesForInstances := map[digest.InstanceName]bool{}
+	for _, instance := range config.AllowUpdatesForInstances {
+		instanceName, err := digest.NewInstanceName(instance)
+		if err != nil {
+			log.Fatalf("Invalid instance name %#v: %s", instance, err)
+		}
+		allowUpdatesForInstances[instanceName] = true
 	}
 
 	// Spawn gRPC servers for client and worker traffic.
@@ -61,7 +82,8 @@ func main() {
 				config.GrpcServers,
 				func(s *grpc.Server) {
 					// Register services
-
+					remoteasset.RegisterFetchServer(s, fetch.NewAssetFetchServer(assetCache, allowUpdatesForInstances, int(config.MaximumMessageSizeBytes)))
+					remoteasset.RegisterPushServer(s, push.NewAssetPushServer(assetCache, allowUpdatesForInstances, int(config.MaximumMessageSizeBytes)))
 				}))
 	}()
 
