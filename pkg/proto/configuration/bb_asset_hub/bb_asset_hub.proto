@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package buildbarn.configuration.bb_asset_hub;
+
+import "pkg/proto/configuration/blobstore/blobstore.proto";
+import "pkg/proto/configuration/global/global.proto";
+import "pkg/proto/configuration/grpc/grpc.proto";
+
+option go_package = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub";
+
+message ApplicationConfiguration {
+  // Address on which to listen to expose the web UI and Prometheus
+  // metrics.
+  string http_listen_address = 2;
+
+  // gRPC servers to spawn to listen for remote asset API connections
+  repeated buildbarn.configuration.grpc.ServerConfiguration
+      grpc_servers = 3;
+
+  // Configuration for blob storage.
+  buildbarn.configuration.blobstore.BlobAccessConfiguration
+      content_addressable_storage = 4;
+
+  // Maximum Protobuf message size to unmarshal.
+  int64 maximum_message_size_bytes = 5;
+
+  // Common configuration options that apply to all Buildbarn binaries.
+  buildbarn.configuration.global.Configuration global = 6;
+}

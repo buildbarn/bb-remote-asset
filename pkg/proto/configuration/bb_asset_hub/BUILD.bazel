@@ -1,0 +1,33 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+go_library(
+    name = "go_default_library",
+    embed = [":bb_asset_hub_go_proto"],
+    importpath = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub",
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "bb_asset_hub_proto",
+    srcs = ["bb_asset_hub.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
+    ],
+)
+
+go_proto_library(
+    name = "bb_asset_hub_go_proto",
+    importpath = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub",
+    proto = ":bb_asset_hub_proto",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:go_default_library",
+    ],
+)
