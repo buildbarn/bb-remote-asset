@@ -26,6 +26,10 @@ func NewAssetPushServer(AssetStore *storage.AssetStore, allowUpdatesForInstances
 }
 
 func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
+	if len(req.Uris) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "PushDirectory requires at least one URI")
+	}
+
 	instanceName, err := digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
@@ -48,6 +52,10 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 }
 
 func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
+	if len(req.Uris) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "PushDirectory requires at least one URI")
+	}
+
 	instanceName, err := digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
