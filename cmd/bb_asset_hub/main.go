@@ -7,13 +7,13 @@ import (
 	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
+	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/pkg/push"
 	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
-	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
+	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/gorilla/mux"
@@ -48,34 +48,40 @@ func main() {
 		log.Fatal("Failed to apply global configuration options: ", err)
 	}
 
+	// Initialize CAS storage access
 	grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
-	//	// Initialize CAS storage access
-	//
-	//	contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-	//		config.ContentAddressableStorage,
-	//		blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
-	//	if err != nil {
-	//		log.Fatal("Failed to create blob access: ", err)
-	//	}
-
+	casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	// Initialize the asset storage. Not actually a CAS, but the blob access is digest-addressed.
 	// We should really implement a BlobAccessCreator for this.
 	assetStoreBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 		config.AssetStore,
-		blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
+		casBlobAccessCreator)
+	// contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+	// 	config.ContentAddressableStorage,
+	// 	casBlobAccessCreator)
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
 	}
+
 	assetStore := storage.NewAssetStore(assetStoreBlobAccess, int(config.MaximumMessageSizeBytes))
 
-	allowUpdatesForInstances := map[digest.InstanceName]bool{}
+	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
-		instanceName, err := digest.NewInstanceName(instance)
+		instanceName, err := bb_digest.NewInstanceName(instance)
 		if err != nil {
 			log.Fatalf("Invalid instance name %#v: %s", instance, err)
 		}
 		allowUpdatesForInstances[instanceName] = true
 	}
+
+	// TODO: Build configuration layer for fetchers
+	fetchServer := fetch.NewCachingFetcher(
+		fetch.NewUnimplementedFetcher(),
+		assetStore)
+
+	pushServer := push.NewAssetPushServer(
+		assetStore,
+		allowUpdatesForInstances)
 
 	// Spawn gRPC servers for client and worker traffic.
 	go func() {
@@ -85,8 +91,8 @@ func main() {
 				config.GrpcServers,
 				func(s *grpc.Server) {
 					// Register services
-					remoteasset.RegisterFetchServer(s, fetch.NewAssetFetchServer(assetStore, allowUpdatesForInstances))
-					remoteasset.RegisterPushServer(s, push.NewAssetPushServer(assetStore, allowUpdatesForInstances))
+					remoteasset.RegisterFetchServer(s, fetchServer)
+					remoteasset.RegisterPushServer(s, pushServer)
 				}))
 	}()
 
