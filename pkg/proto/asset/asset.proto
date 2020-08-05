@@ -3,6 +3,7 @@ syntax = "proto3";
 package buildbarn.asset;
 
 import "build/bazel/remote/asset/v1/remote_asset.proto";
+import "build/bazel/remote/execution/v2/remote_execution.proto";
 
 option go_package = "github.com/buildbarn/bb-storage/pkg/proto/asset";
 
@@ -14,4 +15,10 @@ message AssetReference {
   // Qualifies associated with this asset, sorted lexicographically
   // by key. Ties should be broken by lexicographical sort on values.
   repeated build.bazel.remote.asset.v1.Qualifier qualifiers = 2;
+}
+
+message Asset {
+
+  // Digest in CAS pointed at by this asset
+  build.bazel.remote.execution.v2.Digest digest = 1;
 }

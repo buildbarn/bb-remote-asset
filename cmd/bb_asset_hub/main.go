@@ -59,14 +59,14 @@ func main() {
 	//	}
 
 	// Initialize the asset storage. Not actually a CAS, but the blob access is digest-addressed.
-	assetCacheBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-		config.ReferenceStore,
+	// We should really implement a BlobAccessCreator for this.
+	assetStoreBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+		config.AssetStore,
 		blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
 	}
-
-	refStore := storage.NewReferenceStore(assetCacheBlobAccess, int(config.MaximumMessageSizeBytes))
+	assetStore := storage.NewAssetStore(assetStoreBlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
@@ -85,8 +85,8 @@ func main() {
 				config.GrpcServers,
 				func(s *grpc.Server) {
 					// Register services
-					remoteasset.RegisterFetchServer(s, fetch.NewAssetFetchServer(refStore, allowUpdatesForInstances))
-					remoteasset.RegisterPushServer(s, push.NewAssetPushServer(refStore, allowUpdatesForInstances))
+					remoteasset.RegisterFetchServer(s, fetch.NewAssetFetchServer(assetStore, allowUpdatesForInstances))
+					remoteasset.RegisterPushServer(s, push.NewAssetPushServer(assetStore, allowUpdatesForInstances))
 				}))
 	}()
 

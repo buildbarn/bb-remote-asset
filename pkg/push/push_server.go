@@ -12,15 +12,15 @@ import (
 )
 
 type assetPushServer struct {
-	referenceStore           *storage.ReferenceStore
+	assetStore               *storage.AssetStore
 	allowUpdatesForInstances map[digest.InstanceName]bool
 }
 
 // NewAssetPushServer creates a gRPC service for serving the contents
 // of a Remote Asset Push server.
-func NewAssetPushServer(referenceStore *storage.ReferenceStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.PushServer {
+func NewAssetPushServer(AssetStore *storage.AssetStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.PushServer {
 	return &assetPushServer{
-		referenceStore:           referenceStore,
+		assetStore:               AssetStore,
 		allowUpdatesForInstances: allowUpdatesForInstances,
 	}
 }
@@ -37,7 +37,8 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 
 	for _, uri := range req.Uris {
 		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
-		err = s.referenceStore.Put(ctx, assetRef, req.BlobDigest, instanceName)
+		assetData := storage.NewAsset(req.BlobDigest)
+		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +59,8 @@ func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.Pu
 
 	for _, uri := range req.Uris {
 		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
-		err = s.referenceStore.Put(ctx, assetRef, req.RootDirectoryDigest, instanceName)
+		assetData := storage.NewAsset(req.RootDirectoryDigest)
+		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 		if err != nil {
 			return nil, err
 		}

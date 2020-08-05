@@ -12,15 +12,15 @@ import (
 )
 
 type assetFetchServer struct {
-	referenceStore           *storage.ReferenceStore
+	assetStore               *storage.AssetStore
 	allowUpdatesForInstances map[digest.InstanceName]bool
 }
 
 // NewAssetFetchServer creates a gRPC service for serving the contents
 // of a Remote Asset Fetch server.
-func NewAssetFetchServer(referenceStore *storage.ReferenceStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.FetchServer {
+func NewAssetFetchServer(assetStore *storage.AssetStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.FetchServer {
 	return &assetFetchServer{
-		referenceStore:           referenceStore,
+		assetStore:               assetStore,
 		allowUpdatesForInstances: allowUpdatesForInstances,
 	}
 }
