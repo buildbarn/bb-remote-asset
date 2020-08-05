@@ -4,7 +4,7 @@ import (
 	"context"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 
 	"google.golang.org/grpc/codes"
@@ -12,18 +12,16 @@ import (
 )
 
 type assetFetchServer struct {
-	blobAccess               blobstore.BlobAccess
+	referenceStore           *storage.ReferenceStore
 	allowUpdatesForInstances map[digest.InstanceName]bool
-	maximumMessageSizeBytes  int
 }
 
 // NewAssetFetchServer creates a gRPC service for serving the contents
 // of a Remote Asset Fetch server.
-func NewAssetFetchServer(blobAccess blobstore.BlobAccess, allowUpdatesForInstances map[digest.InstanceName]bool, maximumMessageSizeBytes int) remoteasset.FetchServer {
+func NewAssetFetchServer(referenceStore *storage.ReferenceStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.FetchServer {
 	return &assetFetchServer{
-		blobAccess:               blobAccess,
+		referenceStore:           referenceStore,
 		allowUpdatesForInstances: allowUpdatesForInstances,
-		maximumMessageSizeBytes:  maximumMessageSizeBytes,
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
 	"github.com/buildbarn/bb-asset-hub/pkg/push"
+	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
@@ -58,12 +59,14 @@ func main() {
 	//	}
 
 	// Initialize the asset storage. Not actually a CAS, but the blob access is digest-addressed.
-	assetCache, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+	assetCacheBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 		config.ReferenceStore,
 		blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
 	}
+
+	refStore := storage.NewReferenceStore(assetCacheBlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
@@ -82,8 +85,8 @@ func main() {
 				config.GrpcServers,
 				func(s *grpc.Server) {
 					// Register services
-					remoteasset.RegisterFetchServer(s, fetch.NewAssetFetchServer(assetCache, allowUpdatesForInstances, int(config.MaximumMessageSizeBytes)))
-					remoteasset.RegisterPushServer(s, push.NewAssetPushServer(assetCache, allowUpdatesForInstances, int(config.MaximumMessageSizeBytes)))
+					remoteasset.RegisterFetchServer(s, fetch.NewAssetFetchServer(refStore, allowUpdatesForInstances))
+					remoteasset.RegisterPushServer(s, push.NewAssetPushServer(refStore, allowUpdatesForInstances))
 				}))
 	}()
 

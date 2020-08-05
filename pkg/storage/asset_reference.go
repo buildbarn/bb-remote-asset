@@ -14,15 +14,13 @@ import (
 // NewAssetReference creates a new AssetReference from a URI and a list
 // of qualifiers. Mainly this is a wrapper to ensure the qualifiers get
 // sorted
-func NewAssetReference(uri string, qualifiers []*remoteasset.Qualifier) asset.AssetReference {
+func NewAssetReference(uri string, qualifiers []*remoteasset.Qualifier) *asset.AssetReference {
 	sortedQualifiers := qualifierContainer(qualifiers)
 	sort.Sort(sortedQualifiers)
-	return asset.AssetReference{Uri: uri, Qualifiers: sortedQualifiers.toArray()}
+	return &asset.AssetReference{Uri: uri, Qualifiers: sortedQualifiers.toArray()}
 }
 
-// AssetReferenceToDigest converts an AssetReference proto into a Digest
-// for storage
-func AssetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceName) (digest.Digest, error) {
+func assetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceName) (digest.Digest, error) {
 	wireFormat, err := proto.Marshal(ar)
 	if err != nil {
 		return digest.Digest{}, err
