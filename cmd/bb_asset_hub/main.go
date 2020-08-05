@@ -56,9 +56,9 @@ func main() {
 	assetStoreBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 		config.AssetStore,
 		casBlobAccessCreator)
-	// contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-	// 	config.ContentAddressableStorage,
-	// 	casBlobAccessCreator)
+	contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+		config.ContentAddressableStorage,
+		casBlobAccessCreator)
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
 	}
@@ -76,7 +76,7 @@ func main() {
 
 	// TODO: Build configuration layer for fetchers
 	fetchServer := fetch.NewCachingFetcher(
-		fetch.NewUnimplementedFetcher(),
+		fetch.NewHttpFetcher(http.DefaultClient, contentAddressableStorageBlobAccess),
 		assetStore)
 
 	pushServer := push.NewAssetPushServer(
