@@ -3,9 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "asset.go",
         "asset_reference.go",
+        "asset_store.go",
         "qualifier_container.go",
-        "reference_store.go",
     ],
     importpath = "github.com/buildbarn/bb-asset-hub/pkg/storage",
     visibility = ["//visibility:public"],

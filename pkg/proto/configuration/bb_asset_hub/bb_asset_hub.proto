@@ -9,8 +9,8 @@ import "pkg/proto/configuration/grpc/grpc.proto";
 option go_package = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub";
 
 message ApplicationConfiguration {
-  // Reference store configuration for the Fetch and Push servers
-  buildbarn.configuration.blobstore.BlobAccessConfiguration reference_store = 1;
+  // Asset store configuration for the Fetch and Push servers
+  buildbarn.configuration.blobstore.BlobAccessConfiguration asset_store = 1;
 
   // Address on which to listen to expose the web UI and Prometheus
   // metrics.
