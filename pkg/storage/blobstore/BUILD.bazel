@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "asset_blob_access_creator.go",
+        "asset_blob_access_replicator.go",
+        "asset_storage_type.go",
+    ],
+    importpath = "github.com/buildbarn/bb-asset-hub/pkg/storage/blobstore",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/proto/asset:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/configuration:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/replication:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/grpc:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)
