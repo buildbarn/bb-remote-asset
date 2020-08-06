@@ -1,0 +1,35 @@
+# gazelle:ignore
+
+load("@bazel_gomock//:gomock.bzl", "gomock")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+gomock(
+    name = "blobstore",
+    out = "blobstore.go",
+    interfaces = [
+        "BlobAccess",
+        "HTTPClient",
+    ],
+    library = "@com_github_buildbarn_bb_storage//pkg/blobstore:go_default_library",
+    package = "mock",
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        ":blobstore.go",
+    ],
+    importpath = "github.com/buildbarn/bb-asset-hub/internal/mock",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/local:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/builder:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/clock:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/filesystem:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:go_default_library",
+        "@com_github_golang_mock//gomock:go_default_library",
+        "@go_googleapis//google/longrunning:longrunning_go_proto",
+    ],
+)

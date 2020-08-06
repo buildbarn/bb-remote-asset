@@ -2,6 +2,7 @@ package storage
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"sort"
 	"encoding/hex"
 
@@ -21,7 +22,9 @@ func NewAssetReference(uri string, qualifiers []*remoteasset.Qualifier) *asset.A
 	return &asset.AssetReference{Uri: uri, Qualifiers: sortedQualifiers.toArray()}
 }
 
-func assetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceName) (digest.Digest, error) {
+// AssetReferenceToDigest converts an AssetReference into a bb-storage Digest of its
+// wire format
+func AssetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceName) (digest.Digest, error) {
 	wireFormat, err := proto.Marshal(ar)
 	if err != nil {
 		return digest.Digest{}, err

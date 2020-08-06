@@ -2,21 +2,30 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
+<<<<<<< HEAD
     srcs = [
         "caching_fetcher.go",
         "unimplemented_fetcher.go",
         "http_fetcher.go"
     ],
+=======
+    srcs = ["fetch_server.go"],
+>>>>>>> fd3600f... push: Add tests
     importpath = "github.com/buildbarn/bb-asset-hub/pkg/fetch",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/storage:go_default_library",
+<<<<<<< HEAD
         "@com_github_buildbarn_bb_storage//pkg/blobstore:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/util:go_default_library",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:go_default_library",
+=======
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
+>>>>>>> fd3600f... push: Add tests
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
     ],
