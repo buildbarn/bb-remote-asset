@@ -27,7 +27,7 @@ func NewAssetPushServer(AssetStore *storage.AssetStore, allowUpdatesForInstances
 
 func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
 	if len(req.Uris) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "PushDirectory requires at least one URI")
+		return nil, status.Errorf(codes.InvalidArgument, "PushBlob requires at least one URI")
 	}
 
 	instanceName, err := digest.NewInstanceName(req.InstanceName)

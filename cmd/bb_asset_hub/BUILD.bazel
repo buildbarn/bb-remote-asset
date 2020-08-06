@@ -8,9 +8,9 @@ go_library(
     importpath = "github.com/buildbarn/bb-asset-hub/cmd/bb_asset_hub",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/fetch:go_default_library",
         "//pkg/proto/configuration/bb_asset_hub:go_default_library",
         "//pkg/push:go_default_library",
-        "//pkg/fetch:go_default_library",
         "//pkg/storage:go_default_library",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/configuration:go_default_library",
