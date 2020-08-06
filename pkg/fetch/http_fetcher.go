@@ -30,13 +30,18 @@ type HTTPClient interface {
 type httpFetcher struct {
 	httpClient                HTTPClient
 	contentAddressableStorage blobstore.BlobAccess
+	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
-// NewHTTPFetcher creates a simple HTTP fetcher, capable of downloading arbitrary blobs over HTTP
-func NewHTTPFetcher(httpClient HTTPClient, contentAddressableStorage blobstore.BlobAccess) remoteasset.FetchServer {
+// New HttpFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
+// assets over HTTP and storing them into a CAS.
+func NewHttpFetcher(httpClient HTTPClient,
+					contentAddressableStorage blobstore.BlobAccess,
+					allowUpdatesForInstances map[bb_digest.InstanceName]bool) remoteasset.FetchServer {
 	return &httpFetcher{
 		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,
+		allowUpdatesForInstances:  allowUpdatesForInstances,
 	}
 }
 
@@ -46,6 +51,14 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	if err != nil {
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
 	}
+
+	if hf.allowUpdatesForInstances[instanceName] == false {
+		return &remoteasset.FetchBlobResponse{
+			Status: status.New(codes.PermissionDenied, "This instance is not permitted to update the CAS.").Proto(),
+		}, nil
+	}
+
+
 	// TODO: Address the following fields
 	// timeout := ptypes.Duration(req.timeout)
 	// oldestContentAccepted := ptypes.Timestamp(req.oldestContentAccepted)
@@ -76,7 +89,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 
 func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	return &remoteasset.FetchDirectoryResponse{
-		Status: status.New(codes.PermissionDenied, "Not supported!").Proto(),
+		Status: status.New(codes.PermissionDenied, "HTTP Fetching of directories is not supported!").Proto(),
 	}, nil
 }
 
