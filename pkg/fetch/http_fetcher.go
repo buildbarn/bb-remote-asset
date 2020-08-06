@@ -3,9 +3,9 @@ package fetch
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"io/ioutil"
-	"crypto/sha256"
 	"net/http"
 
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
@@ -20,6 +20,7 @@ import (
 )
 
 // TODO: Move from bb-storage pkg/blobstore/reference_expanding_blob_access.go into a shared util lib
+
 // HTTPClient is an interface around Go's standard HTTP client type. It
 // has been added to aid unit testing.
 type HTTPClient interface {
@@ -27,13 +28,14 @@ type HTTPClient interface {
 }
 
 type httpFetcher struct {
-	httpClient 				  HTTPClient
+	httpClient                HTTPClient
 	contentAddressableStorage blobstore.BlobAccess
 }
 
-func NewHttpFetcher(httpClient HTTPClient, contentAddressableStorage blobstore.BlobAccess) remoteasset.FetchServer {
+// NewHTTPFetcher creates a simple HTTP fetcher, capable of downloading arbitrary blobs over HTTP
+func NewHTTPFetcher(httpClient HTTPClient, contentAddressableStorage blobstore.BlobAccess) remoteasset.FetchServer {
 	return &httpFetcher{
-		httpClient:				   httpClient,
+		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,
 	}
 }
@@ -60,8 +62,8 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 			}, nil
 		}
 		return &remoteasset.FetchBlobResponse{
-			Status: 	status.New(codes.OK, "Blob fetched successfully!").Proto(),
-			Uri: 		uri,
+			Status:     status.New(codes.OK, "Blob fetched successfully!").Proto(),
+			Uri:        uri,
 			Qualifiers: req.Qualifiers,
 			BlobDigest: digest.GetProto(),
 		}, nil

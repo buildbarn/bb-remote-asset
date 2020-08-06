@@ -5,6 +5,7 @@ import (
 
 	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/util"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
@@ -21,14 +22,16 @@ type cachingFetcher struct {
 // blob remotely multiple times
 func NewCachingFetcher(fetcher remoteasset.FetchServer, refStore *storage.AssetStore) remoteasset.FetchServer {
 	return &cachingFetcher{
-		fetcher: 	        fetcher,
-		assetStore: 		refStore,
+		fetcher:    fetcher,
+		assetStore: refStore,
 	}
 }
 
-
 func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
+	if err != nil {
+		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
+	}
 
 	// Check refStore
 	for _, uri := range req.Uris {
@@ -40,8 +43,8 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 		// Successful retrieval from the asset reference cache
 		return &remoteasset.FetchBlobResponse{
-			Status: 	status.New(codes.OK, "Blob fetched successfully from asset cache").Proto(),
-			Uri: 		uri,
+			Status:     status.New(codes.OK, "Blob fetched successfully from asset cache").Proto(),
+			Uri:        uri,
 			Qualifiers: req.Qualifiers,
 			BlobDigest: assetData.Digest,
 		}, nil
