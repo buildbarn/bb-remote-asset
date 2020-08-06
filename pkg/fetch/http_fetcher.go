@@ -1,9 +1,9 @@
 package fetch
 
 import (
+	"bytes"
 	"context"
-	"fmt"
-	"io"
+	"encoding/hex"
 	"io/ioutil"
 	"crypto/sha256"
 	"net/http"
@@ -39,6 +39,7 @@ func NewHttpFetcher(httpClient HTTPClient, contentAddressableStorage blobstore.B
 }
 
 func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
+	var err error
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
@@ -58,16 +59,20 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 				Status: status.Convert(err).Proto(),
 			}, nil
 		}
+		return &remoteasset.FetchBlobResponse{
+			Status: 	status.New(codes.OK, "Blob fetched successfully!").Proto(),
+			Uri: 		uri,
+			Qualifiers: req.Qualifiers,
+			BlobDigest: digest.GetProto(),
+		}, nil
 	}
 
-	fmt.Println("FetchBlob Request")
 	return &remoteasset.FetchBlobResponse{
-		Status: status.New(codes.PermissionDenied, "Not supported!").Proto(),
+		Status: status.Convert(err).Proto(),
 	}, nil
 }
 
 func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	fmt.Println("FetchDirectory Request")
 	return &remoteasset.FetchDirectoryResponse{
 		Status: status.New(codes.PermissionDenied, "Not supported!").Proto(),
 	}, nil
@@ -82,19 +87,25 @@ func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceNam
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest
 	}
-	if resp.StatusCode != http.StatusPartialContent {
-		resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
 		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest
 	}
 
-	hash := sha256.New()
-	// Copy the contents of the body for hashing and consumption by the buffer library
-	blobReader :=  io.TeeReader(resp.Body, hash)
-
-	digest, err := instanceName.NewDigest(string(hash.Sum(nil)), resp.ContentLength)
+	// Read all of the content (Not ideal) | // TODO: find a way to avoid internal buffering here
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest
+	}
+	nBytes := len(body)
+
+	hasher := sha256.New()
+	hasher.Write(body)
+	hash := hasher.Sum(nil)
+
+	digest, err := instanceName.NewDigest(hex.EncodeToString(hash), int64(nBytes))
+	if err != nil {
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Digest Creation failed")), bb_digest.BadDigest
 	}
 
-	return buffer.NewCASBufferFromReader(digest, ioutil.NopCloser(blobReader), buffer.Irreparable), digest
+	return buffer.NewCASBufferFromReader(digest, ioutil.NopCloser(bytes.NewBuffer(body)), buffer.Irreparable), digest
 }
