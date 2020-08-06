@@ -49,7 +49,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	// Cache Miss
 	// Fetch from wrapped fetcher
-	response, err := cf.FetchBlob(ctx, req)
+	response, err := cf.fetcher.FetchBlob(ctx, req)
 	if err != nil {
 		return nil, err
 	}
