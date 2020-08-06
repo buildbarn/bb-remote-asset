@@ -6,6 +6,8 @@ go_library(
         "caching_fetcher.go",
         "http_fetcher.go",
         "unimplemented_fetcher.go",
+        "validating_fetcher.go",
+        "http_fetcher.go"
     ],
     importpath = "github.com/buildbarn/bb-asset-hub/pkg/fetch",
     visibility = ["//visibility:public"],
