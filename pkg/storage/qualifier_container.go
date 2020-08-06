@@ -17,7 +17,7 @@ func (q qualifierContainer) Swap(i, j int) {
 }
 
 func (q qualifierContainer) toArray() []*remoteasset.Qualifier {
-	var out []*remoteasset.Qualifier
+	out := make([]*remoteasset.Qualifier, len(q))
 	for i := 0; i < len(q); i++ {
 		out[i] = q[i]
 	}
