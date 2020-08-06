@@ -3,6 +3,7 @@ package storage
 import (
 	"crypto/sha256"
 	"sort"
+	"encoding/hex"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
@@ -29,5 +30,5 @@ func assetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceNa
 	hash := sha256.Sum256(wireFormat)
 	sizeBytes := int64(len(wireFormat))
 
-	return instance.NewDigest(string(hash[:]), sizeBytes)
+	return instance.NewDigest(hex.EncodeToString(hash[:]), sizeBytes)
 }
