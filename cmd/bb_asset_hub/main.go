@@ -7,13 +7,14 @@ import (
 	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
 	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
+	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
 	"github.com/buildbarn/bb-asset-hub/pkg/push"
 	"github.com/buildbarn/bb-asset-hub/pkg/storage"
+	asset_configuration "github.com/buildbarn/bb-asset-hub/pkg/storage/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
-	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/gorilla/mux"
@@ -51,11 +52,6 @@ func main() {
 	// Initialize CAS storage access
 	grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
 	casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	// Initialize the asset storage. Not actually a CAS, but the blob access is digest-addressed.
-	// We should really implement a BlobAccessCreator for this.
-	assetStoreBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-		config.AssetStore,
-		casBlobAccessCreator)
 	contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 		config.ContentAddressableStorage,
 		casBlobAccessCreator)
@@ -63,7 +59,14 @@ func main() {
 		log.Fatal("Failed to create blob access: ", err)
 	}
 
-	assetStore := storage.NewAssetStore(assetStoreBlobAccess, int(config.MaximumMessageSizeBytes))
+	assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+		config.AssetStore,
+		assetBlobAccessCreator)
+	if err != nil {
+		log.Fatal("Failed to create blob access: ", err)
+	}
+	assetStore := storage.NewAssetStore(assetBlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
