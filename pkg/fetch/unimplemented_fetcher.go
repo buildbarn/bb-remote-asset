@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
 	"google.golang.org/grpc/codes"
@@ -11,11 +12,10 @@ import (
 type unimplementedFetcher struct {
 }
 
-// NewAssetFetchServer creates a blank Fetcher with both FetchBlob
+// NewUnimplementedFetcher creates a blank Fetcher with both FetchBlob
 // and FetchDirectory unimplemented
 func NewUnimplementedFetcher() remoteasset.FetchServer {
-	return &unimplementedFetcher{
-	}
+	return &unimplementedFetcher{}
 }
 
 func (f *unimplementedFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {

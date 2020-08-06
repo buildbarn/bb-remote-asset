@@ -79,7 +79,7 @@ func main() {
 
 	// TODO: Build configuration layer for fetchers
 	fetchServer := fetch.NewCachingFetcher(
-		fetch.NewHttpFetcher(http.DefaultClient, contentAddressableStorageBlobAccess),
+		fetch.NewHTTPFetcher(http.DefaultClient, contentAddressableStorageBlobAccess),
 		assetStore)
 
 	pushServer := push.NewAssetPushServer(

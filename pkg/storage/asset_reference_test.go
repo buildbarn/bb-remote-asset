@@ -10,30 +10,30 @@ import (
 
 func TestAssetReferenceCreation(t *testing.T) {
 	qualifiers := []*remoteasset.Qualifier{
-		&remoteasset.Qualifier{
+		{
 			Name:  "foo",
 			Value: "bar",
 		},
-		&remoteasset.Qualifier{
+		{
 			Name:  "bar",
 			Value: "foo",
 		},
-		&remoteasset.Qualifier{
+		{
 			Name:  "foo",
 			Value: "bap",
 		},
 	}
 
 	sortedQualifiers := []*remoteasset.Qualifier{
-		&remoteasset.Qualifier{
+		{
 			Name:  "bar",
 			Value: "foo",
 		},
-		&remoteasset.Qualifier{
+		{
 			Name:  "foo",
 			Value: "bap",
 		},
-		&remoteasset.Qualifier{
+		{
 			Name:  "foo",
 			Value: "bar",
 		},
