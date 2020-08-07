@@ -33,14 +33,14 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 	}
 	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
-	data := storage.NewAsset(blobDigest)
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
 			m, err := b.ToProto(&asset.Asset{}, 1000)
 			require.NoError(t, err)
-			require.True(t, proto.Equal(data, m))
+			a := m.(*asset.Asset)
+			require.True(t, proto.Equal(a.Digest, blobDigest))
 			return nil
 		})
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
@@ -65,14 +65,14 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 	}
 	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
-	data := storage.NewAsset(rootDirectoryDigest)
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
 			m, err := b.ToProto(&asset.Asset{}, 1000)
 			require.NoError(t, err)
-			require.True(t, proto.Equal(data, m))
+			a := m.(*asset.Asset)
+			require.True(t, proto.Equal(a.Digest, rootDirectoryDigest))
 			return nil
 		})
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
