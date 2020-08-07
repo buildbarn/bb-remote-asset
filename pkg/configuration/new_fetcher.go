@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
-	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	pb "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub/fetch"
-	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
@@ -17,8 +17,8 @@ import (
 )
 
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
-								 assetStore *storage.AssetStore,
-								 casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (remoteasset.FetchServer, error) {
+	assetStore *storage.AssetStore,
+	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (remoteasset.FetchServer, error) {
 	var fetcher remoteasset.FetchServer
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
@@ -49,8 +49,8 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			http.DefaultClient,
 			cas,
 			allowUpdatesForInstances)
-	case *pb.FetcherConfiguration_NotFound:
-		fetcher = fetch.NewNotFoundFetcher()
+	case *pb.FetcherConfiguration_Error:
+		fetcher = fetch.NewErrorFetcher(backend.Error)
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
