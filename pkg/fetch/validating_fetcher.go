@@ -22,18 +22,14 @@ func NewValidatingFetcher(fetcher remoteasset.FetchServer) remoteasset.FetchServ
 
 func (vf *validatingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
 	if len(req.Uris) == 0 {
-		return &remoteasset.FetchBlobResponse{
-			Status: status.New(codes.InvalidArgument, "FetchBlob does not support requests without any URIs specified.").Proto(),
-		}, nil
+		return nil, status.Error(codes.InvalidArgument, "FetchBlob does not support requests without any URIs specified.")
 	}
 	return vf.fetcher.FetchBlob(ctx, req)
 }
 
 func (vf *validatingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	if len(req.Uris) == 0 {
-		return &remoteasset.FetchDirectoryResponse{
-			Status: status.New(codes.InvalidArgument, "FetchDirectory does not support requests without any URIs specified.").Proto(),
-		}, nil
+		return nil, status.Error(codes.InvalidArgument, "FetchDirectory does not support requests without any URIs specified.")
 	}
 	return vf.fetcher.FetchDirectory(ctx, req)
 }
