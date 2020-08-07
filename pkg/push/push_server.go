@@ -41,7 +41,7 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 
 	for _, uri := range req.Uris {
 		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
-		assetData := storage.NewAsset(req.BlobDigest)
+		assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
 		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 		if err != nil {
 			return nil, err
@@ -67,7 +67,7 @@ func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.Pu
 
 	for _, uri := range req.Uris {
 		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
-		assetData := storage.NewAsset(req.RootDirectoryDigest)
+		assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
 		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 		if err != nil {
 			return nil, err
