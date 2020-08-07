@@ -55,9 +55,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	if hf.allowUpdatesForInstances[instanceName] == false {
-		return &remoteasset.FetchBlobResponse{
-			Status: status.New(codes.PermissionDenied, "This instance is not permitted to update the CAS.").Proto(),
-		}, nil
+		return nil, status.Errorf(codes.PermissionDenied, "This instance is not permitted to update the CAS.")
 	}
 
 	// TODO: Address the following fields
@@ -65,9 +63,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	// oldestContentAccepted := ptypes.Timestamp(req.oldestContentAccepted)
 	expectedDigest, err := getChecksumSri(req.Qualifiers)
 	if err != nil {
-		return &remoteasset.FetchBlobResponse{
-			Status: status.Convert(err).Proto(),
-		}, nil
+		return nil, err
 	}
 
 	for _, uri := range req.Uris {
@@ -78,9 +74,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 		}
 
 		if err := hf.contentAddressableStorage.Put(ctx, digest, buffer); err != nil {
-			return &remoteasset.FetchBlobResponse{
-				Status: status.Convert(err).Proto(),
-			}, nil
+			return nil, util.StatusWrapWithCode(err, codes.Internal, "Failed to place blob into CAS")
 		}
 		return &remoteasset.FetchBlobResponse{
 			Status:     status.New(codes.OK, "Blob fetched successfully!").Proto(),
@@ -90,15 +84,11 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 		}, nil
 	}
 
-	return &remoteasset.FetchBlobResponse{
-		Status: status.New(codes.NotFound, err.Error()).Proto(),
-	}, nil
+	return nil, util.StatusWrapWithCode(err, codes.NotFound, "Unable to download blob from any provided URI")
 }
 
 func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	return &remoteasset.FetchDirectoryResponse{
-		Status: status.New(codes.PermissionDenied, "HTTP Fetching of directories is not supported!").Proto(),
-	}, nil
+	return nil, status.Errorf(codes.PermissionDenied, "HTTP Fetching of directories is not supported!")
 }
 
 func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string) (buffer.Buffer, bb_digest.Digest) {
