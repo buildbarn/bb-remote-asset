@@ -65,7 +65,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 
 	for _, uri := range req.Uris {
 		buffer, digest := hf.DownloadBlob(ctx, uri, instanceName)
-		if _, err := buffer.GetSizeBytes(); err != nil {
+		if _, err = buffer.GetSizeBytes(); err != nil {
 			continue
 		}
 
@@ -83,7 +83,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	return &remoteasset.FetchBlobResponse{
-		Status: status.Convert(err).Proto(),
+		Status: status.New(codes.NotFound, err.Error()).Proto(),
 	}, nil
 }
 
