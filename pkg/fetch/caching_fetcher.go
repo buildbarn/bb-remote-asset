@@ -20,10 +20,10 @@ type cachingFetcher struct {
 
 // NewCachingFetcher creates a decorator for remoteasset.FetchServer implementations to avoid having to fetch the
 // blob remotely multiple times
-func NewCachingFetcher(fetcher remoteasset.FetchServer, refStore *storage.AssetStore) remoteasset.FetchServer {
+func NewCachingFetcher(fetcher remoteasset.FetchServer, assetStore *storage.AssetStore) remoteasset.FetchServer {
 	return &cachingFetcher{
-		fetcher:    fetcher,
-		assetStore: refStore,
+		fetcher: 	        fetcher,
+		assetStore: 		assetStore,
 	}
 }
 
@@ -33,7 +33,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
 	}
 
-	// Check refStore
+	// Check assetStore
 	for _, uri := range req.Uris {
 		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
 		assetData, err := cf.assetStore.Get(ctx, assetRef, instanceName)
@@ -69,7 +69,46 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 }
 
 func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
+<<<<<<< HEAD
 	return &remoteasset.FetchDirectoryResponse{
 		Status: status.New(codes.Unimplemented, "This feature is not currently supported!").Proto(),
 	}, nil
 }
+=======
+	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
+
+	// Check refStore
+	for _, uri := range req.Uris {
+		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
+		assetData, err := cf.assetStore.Get(ctx, assetRef, instanceName)
+		if err != nil {
+			continue
+		}
+
+		// Successful retrieval from the asset reference cache
+		return &remoteasset.FetchDirectoryResponse{
+			Status: 			 status.New(codes.OK, "Directory fetched successfully from asset cache").Proto(),
+			Uri: 				 uri,
+			Qualifiers: 		 req.Qualifiers,
+			RootDirectoryDigest: assetData.Digest,
+		}, nil
+	}
+
+	// Cache Miss
+	// Fetch from wrapped fetcher
+	response, err := cf.fetcher.FetchDirectory(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache fetched blob
+	assetRef := storage.NewAssetReference(response.Uri, response.Qualifiers)
+	assetData := storage.NewAsset(response.RootDirectoryDigest)
+	err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+>>>>>>> Add FetchDirectory implementation for caching fetcher
