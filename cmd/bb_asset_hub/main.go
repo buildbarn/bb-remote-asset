@@ -7,10 +7,10 @@ import (
 	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
 	"github.com/buildbarn/bb-asset-hub/pkg/push"
 	"github.com/buildbarn/bb-asset-hub/pkg/storage"
+	"github.com/buildbarn/bb-asset-hub/pkg/configuration"
 	asset_configuration "github.com/buildbarn/bb-asset-hub/pkg/storage/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
@@ -52,14 +52,8 @@ func main() {
 	// Initialize CAS storage access
 	grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
 	casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	contentAddressableStorageBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-		config.ContentAddressableStorage,
-		casBlobAccessCreator)
-	if err != nil {
-		log.Fatal("Failed to create blob access: ", err)
-	}
-
 	assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
+
 	assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 		config.AssetStore,
 		assetBlobAccessCreator)
@@ -77,12 +71,10 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	// TODO: Build configuration layer for fetchers
-	fetchServer := fetch.NewCachingFetcher(
-		fetch.NewHttpFetcher(http.DefaultClient,
-							 contentAddressableStorageBlobAccess,
-							 allowUpdatesForInstances),
-		assetStore)
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator)
+	if err != nil {
+		log.Fatal("Failed to initialize fetch server from configuration: ", err)
+	}
 
 	pushServer := push.NewAssetPushServer(
 		assetStore,

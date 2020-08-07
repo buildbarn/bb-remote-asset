@@ -69,12 +69,6 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 }
 
 func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-<<<<<<< HEAD
-	return &remoteasset.FetchDirectoryResponse{
-		Status: status.New(codes.Unimplemented, "This feature is not currently supported!").Proto(),
-	}, nil
-}
-=======
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
 
 	// Check refStore
@@ -111,4 +105,3 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 	return response, nil
 }
->>>>>>> Add FetchDirectory implementation for caching fetcher

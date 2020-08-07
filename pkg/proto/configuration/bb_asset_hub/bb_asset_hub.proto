@@ -5,6 +5,7 @@ package buildbarn.configuration.bb_asset_hub;
 import "pkg/proto/configuration/blobstore/blobstore.proto";
 import "pkg/proto/configuration/global/global.proto";
 import "pkg/proto/configuration/grpc/grpc.proto";
+import "pkg/proto/configuration/bb_asset_hub/fetch/fetcher.proto";
 
 option go_package = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub";
 
@@ -20,9 +21,7 @@ message ApplicationConfiguration {
   repeated buildbarn.configuration.grpc.ServerConfiguration
       grpc_servers = 3;
 
-  // Configuration for blob storage.
-  buildbarn.configuration.blobstore.BlobAccessConfiguration
-      content_addressable_storage = 4;
+  reserved 4; // Used to be used for content addressable storage
 
   // Maximum Protobuf message size to unmarshal.
   int64 maximum_message_size_bytes = 5;
@@ -32,4 +31,7 @@ message ApplicationConfiguration {
 
   // List of instances which can upload to the Cache.
   repeated string allow_updates_for_instances = 7;
+
+  // Configuration for remote asset FetchServer
+  buildbarn.configuration.bb_asset_hub.fetch.FetcherConfiguration fetcher = 8;
 }
