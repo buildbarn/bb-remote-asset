@@ -33,11 +33,11 @@ type httpFetcher struct {
 	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
-// New HttpFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
+// NewHttpFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
 func NewHttpFetcher(httpClient HTTPClient,
-					contentAddressableStorage blobstore.BlobAccess,
-					allowUpdatesForInstances map[bb_digest.InstanceName]bool) remoteasset.FetchServer {
+	contentAddressableStorage blobstore.BlobAccess,
+	allowUpdatesForInstances map[bb_digest.InstanceName]bool) remoteasset.FetchServer {
 	return &httpFetcher{
 		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,
@@ -57,7 +57,6 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 			Status: status.New(codes.PermissionDenied, "This instance is not permitted to update the CAS.").Proto(),
 		}, nil
 	}
-
 
 	// TODO: Address the following fields
 	// timeout := ptypes.Duration(req.timeout)

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package buildbarn.configuration.bb_asset_hub.fetch;
 
+import "google/rpc/status.proto";
 import "pkg/proto/configuration/blobstore/blobstore.proto";
 
 option go_package = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub/fetch";
@@ -14,9 +15,12 @@ message FetcherConfiguration {
     // Downloads blobs over HTTP and place them into a CAS for retrieval over REv2 ReadBlobs requests.
     HttpFetcherConfiguration http = 2;
 
-    // Returns not found for all requests, can be wrapped by CachingFetcher for a
+    // Returns a given error for all requests, can be wrapped by CachingFetcher for a
     // Push/Fetch service without any server side downloads.
-    NotFoundFetcherConfiguration notFound = 3;
+    //
+    // Note that in jsonnet configuration, 'error' will need to be in quotes to avoid
+    // collision with a protected keyword
+    google.rpc.Status error = 3;
   }
 
   message CachingFetcherConfiguration {
@@ -30,9 +34,6 @@ message FetcherConfiguration {
 
     // List of instances which can trigger an upload to the CAS
     repeated string allow_updates_for_instances = 2;
-  }
-
-  message NotFoundFetcherConfiguration {
   }
 }
 
