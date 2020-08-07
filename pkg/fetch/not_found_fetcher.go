@@ -19,9 +19,13 @@ func NewNotFoundFetcher() remoteasset.FetchServer {
 }
 
 func (nf *notFoundFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	return nil, status.Errorf(codes.NotFound, "Blob could not be found at any of the provided URIs")
+	return &remoteasset.FetchBlobResponse{
+		Status: status.New(codes.NotFound, "Blob could not be found at any of the provided URIs").Proto(),
+	}, nil
 }
 
 func (nf *notFoundFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	return nil, status.Errorf(codes.NotFound, "Directory could not be found at any of the provided URIs")
+	return &remoteasset.FetchDirectoryResponse{
+		Status: status.New(codes.NotFound, "Directory could not be found at any of the provided URIs").Proto(),
+	}, nil
 }
