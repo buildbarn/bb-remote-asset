@@ -19,9 +19,13 @@ func NewUnimplementedFetcher() remoteasset.FetchServer {
 }
 
 func (f *unimplementedFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "FetchBlob not implemented")
+	return &remoteasset.FetchBlobResponse{
+		Status: status.New(codes.Unimplemented, "FetchBlob not implemented").Proto(),
+	}, nil
 }
 
 func (f *unimplementedFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "FetchDirectory not implemented")
+	return &remoteasset.FetchDirectoryResponse{
+		Status: status.New(codes.Unimplemented, "FetchDirectory not implemented").Proto(),
+	}, nil
 }
