@@ -5,8 +5,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/base64"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
@@ -61,9 +63,16 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	// TODO: Address the following fields
 	// timeout := ptypes.Duration(req.timeout)
 	// oldestContentAccepted := ptypes.Timestamp(req.oldestContentAccepted)
+	expectedDigest, err := getChecksumSri(req.Qualifiers)
+	if err != nil {
+		return &remoteasset.FetchBlobResponse{
+			Status: status.Convert(err).Proto(),
+		}, nil
+	}
 
 	for _, uri := range req.Uris {
-		buffer, digest := hf.DownloadBlob(ctx, uri, instanceName)
+
+		buffer, digest := hf.DownloadBlob(ctx, uri, instanceName, expectedDigest)
 		if _, err = buffer.GetSizeBytes(); err != nil {
 			continue
 		}
@@ -92,7 +101,7 @@ func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.Fetc
 	}, nil
 }
 
-func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName) (buffer.Buffer, bb_digest.Digest) {
+func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string) (buffer.Buffer, bb_digest.Digest) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest
@@ -115,11 +124,35 @@ func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceNam
 	hasher := sha256.New()
 	hasher.Write(body)
 	hash := hasher.Sum(nil)
+	hexHash := hex.EncodeToString(hash)
 
-	digest, err := instanceName.NewDigest(hex.EncodeToString(hash), int64(nBytes))
+	if expectedDigest != "" && hexHash != expectedDigest {
+		return buffer.NewBufferFromError(
+			status.Errorf(codes.PermissionDenied, "Checksum invalid for fetched blob. Expected: %s, Found: %s", expectedDigest, hexHash)), bb_digest.BadDigest
+	}
+
+	digest, err := instanceName.NewDigest(hexHash, int64(nBytes))
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Digest Creation failed")), bb_digest.BadDigest
 	}
 
 	return buffer.NewCASBufferFromReader(digest, ioutil.NopCloser(bytes.NewBuffer(body)), buffer.Irreparable), digest
+}
+
+func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, error) {
+	for _, qualifier := range qualifiers {
+		if qualifier.Name == "checksum.sri" {
+			if strings.HasPrefix(qualifier.Value, "sha256-") {
+				b64hash := strings.TrimPrefix(qualifier.Value, "sha256-")
+				decoded, err := base64.StdEncoding.DecodeString(b64hash)
+				if err != nil {
+					return "", status.Errorf(codes.InvalidArgument, "Failed to decode checksum as b64 encoded sha256 sum: %s", err.Error())
+				}
+				return hex.EncodeToString(decoded), nil
+			} else {
+				return "", status.Errorf(codes.InvalidArgument, "Non sha256 checksums are not supported")
+			}
+		}
+	}
+	return "", nil
 }
