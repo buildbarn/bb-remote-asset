@@ -8,6 +8,7 @@ go_library(
         "unimplemented_fetcher.go",
         "validating_fetcher.go",
         "not_found_fetcher.go",
+        "logging_fetcher.go",
     ],
     importpath = "github.com/buildbarn/bb-asset-hub/pkg/fetch",
     visibility = ["//visibility:public"],

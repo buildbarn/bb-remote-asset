@@ -55,5 +55,5 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
 
-	return fetch.NewValidatingFetcher(fetcher), nil
+	return fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher)), nil
 }
