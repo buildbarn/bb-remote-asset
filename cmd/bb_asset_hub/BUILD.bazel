@@ -41,6 +41,6 @@ go_image(
 
 container_push_official(
     name = "bb_asset_hub_container_push",
-    component = "bb-browser",
+    component = "bb-asset-hub",
     image = ":bb_asset_hub_container",
 )
