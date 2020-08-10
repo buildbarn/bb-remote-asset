@@ -1,26 +1,26 @@
 package fetch_test
 
 import (
+	"context"
 	"io"
 	"net/http"
-	"context"
 	"testing"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/internal/mock"
+	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
+	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
-	"github.com/golang/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func TestHttpFetcherFetchBlob(t *testing.T) {
+func TestHTTPFetcherFetchBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := bb_digest.NewInstanceName("")
@@ -34,7 +34,7 @@ func TestHttpFetcherFetchBlob(t *testing.T) {
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	httpClient := mock.NewMockHTTPClient(ctrl)
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{instanceName: true}
-	httpFetcher := fetch.NewHttpFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
+	HTTPFetcher := fetch.NewHTTPFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
 	body := mock.NewMockReadCloser(ctrl)
 	helloDigest := bb_digest.MustNewDigest("", "185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969", 5)
 
@@ -50,7 +50,7 @@ func TestHttpFetcherFetchBlob(t *testing.T) {
 		}).After(httpDoCall)
 		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyReadCall)
 
-		response, err := httpFetcher.FetchBlob(ctx, request)
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
 		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -72,7 +72,7 @@ func TestHttpFetcherFetchBlob(t *testing.T) {
 		}).After(httpSuccessCall)
 		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyReadCall)
 
-		response, err := httpFetcher.FetchBlob(ctx, request)
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
 		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -84,13 +84,13 @@ func TestHttpFetcherFetchBlob(t *testing.T) {
 			StatusCode: 404,
 		}, nil).MaxTimes(2)
 
-		_, err := httpFetcher.FetchBlob(ctx, request)
+		_, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NotNil(t, err)
 		require.Equal(t, status.Code(err), codes.NotFound)
 	})
 }
 
-func TestHttpFetcherFetchDirectory(t *testing.T) {
+func TestHTTPFetcherFetchDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := bb_digest.NewInstanceName("")
@@ -104,8 +104,8 @@ func TestHttpFetcherFetchDirectory(t *testing.T) {
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	httpClient := mock.NewMockHTTPClient(ctrl)
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{instanceName: true}
-	httpFetcher := fetch.NewHttpFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
-	_, err = httpFetcher.FetchDirectory(ctx, request)
+	HTTPFetcher := fetch.NewHTTPFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
+	_, err = HTTPFetcher.FetchDirectory(ctx, request)
 	require.NotNil(t, err)
 	require.Equal(t, status.Code(err), codes.PermissionDenied)
 }

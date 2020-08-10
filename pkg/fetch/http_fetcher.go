@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/base64"
+	"encoding/hex"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -14,7 +14,6 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
-
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"google.golang.org/grpc/codes"
@@ -27,9 +26,9 @@ type httpFetcher struct {
 	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
-// NewHttpFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
+// NewHTTPFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
-func NewHttpFetcher(httpClient blobstore.HTTPClient,
+func NewHTTPFetcher(httpClient blobstore.HTTPClient,
 	contentAddressableStorage blobstore.BlobAccess,
 	allowUpdatesForInstances map[bb_digest.InstanceName]bool) remoteasset.FetchServer {
 	return &httpFetcher{
@@ -131,9 +130,8 @@ func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, error) {
 					return "", status.Errorf(codes.InvalidArgument, "Failed to decode checksum as b64 encoded sha256 sum: %s", err.Error())
 				}
 				return hex.EncodeToString(decoded), nil
-			} else {
-				return "", status.Errorf(codes.InvalidArgument, "Non sha256 checksums are not supported")
 			}
+			return "", status.Errorf(codes.InvalidArgument, "Non sha256 checksums are not supported")
 		}
 	}
 	return "", nil

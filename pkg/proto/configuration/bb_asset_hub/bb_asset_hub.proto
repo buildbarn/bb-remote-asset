@@ -18,10 +18,9 @@ message ApplicationConfiguration {
   string http_listen_address = 2;
 
   // gRPC servers to spawn to listen for remote asset API connections
-  repeated buildbarn.configuration.grpc.ServerConfiguration
-      grpc_servers = 3;
+  repeated buildbarn.configuration.grpc.ServerConfiguration grpc_servers = 3;
 
-  reserved 4; // Used to be used for content addressable storage
+  reserved 4;  // Used to be used for content addressable storage
 
   // Maximum Protobuf message size to unmarshal.
   int64 maximum_message_size_bytes = 5;

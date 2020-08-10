@@ -19,7 +19,7 @@ go_library(
         "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
-        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
     ],
 )
 
@@ -31,12 +31,15 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/proto/asset:go_default_library",
         "//internal/mock:go_default_library",
+        "//pkg/proto/asset:go_default_library",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
-        "@com_github_stretchr_testify//require:go_default_library",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer:go_default_library",
+        "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
         "@com_github_golang_mock//gomock:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+        "@com_github_stretchr_testify//require:go_default_library",
     ],
 )

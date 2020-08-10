@@ -12,14 +12,15 @@ message FetcherConfiguration {
     // Reads and writes to the AssetStore to return cached responses
     CachingFetcherConfiguration caching = 1;
 
-    // Downloads blobs over HTTP and place them into a CAS for retrieval over REv2 ReadBlobs requests.
+    // Downloads blobs over HTTP and place them into a CAS for retrieval over
+    // REv2 ReadBlobs requests.
     HttpFetcherConfiguration http = 2;
 
-    // Returns a given error for all requests, can be wrapped by CachingFetcher for a
-    // Push/Fetch service without any server side downloads.
+    // Returns a given error for all requests, can be wrapped by CachingFetcher
+    // for a Push/Fetch service without any server side downloads.
     //
-    // Note that in jsonnet configuration, 'error' will need to be in quotes to avoid
-    // collision with a protected keyword
+    // Note that in jsonnet configuration, 'error' will need to be in quotes to
+    // avoid collision with a protected keyword
     google.rpc.Status error = 3;
   }
 
@@ -30,10 +31,10 @@ message FetcherConfiguration {
 
   message HttpFetcherConfiguration {
     // Configuration for blob storage.
-    buildbarn.configuration.blobstore.BlobAccessConfiguration content_addressable_storage = 1;
+    buildbarn.configuration.blobstore.BlobAccessConfiguration
+        content_addressable_storage = 1;
 
     // List of instances which can trigger an upload to the CAS
     repeated string allow_updates_for_instances = 2;
   }
 }
-

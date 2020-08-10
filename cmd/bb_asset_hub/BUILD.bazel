@@ -9,7 +9,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/configuration:go_default_library",
-        "//pkg/fetch:go_default_library",
         "//pkg/proto/configuration/bb_asset_hub:go_default_library",
         "//pkg/push:go_default_library",
         "//pkg/storage:go_default_library",

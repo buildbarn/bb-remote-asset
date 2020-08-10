@@ -145,6 +145,7 @@ func TestCachingFetcherExpiry(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	buf := buffer.NewProtoBufferFromProto(&asset.Asset{
@@ -180,6 +181,7 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 		OldestContentAccepted: ptypes.TimestampNow(),
 	}
 	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	ts, err := ptypes.TimestampProto(time.Unix(1, 1))
