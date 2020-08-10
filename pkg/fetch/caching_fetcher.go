@@ -83,6 +83,9 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 	if err != nil {
 		return nil, err
 	}
+	if response.Status.Code != 0 {
+		return response, nil
+	}
 
 	// Cache fetched blob
 	assetRef := storage.NewAssetReference(response.Uri, response.Qualifiers)
