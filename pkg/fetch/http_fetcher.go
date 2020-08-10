@@ -15,29 +15,21 @@ import (
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 
-	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
+	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// TODO: Move from bb-storage pkg/blobstore/reference_expanding_blob_access.go into a shared util lib
-
-// HTTPClient is an interface around Go's standard HTTP client type. It
-// has been added to aid unit testing.
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 type httpFetcher struct {
-	httpClient                HTTPClient
+	httpClient                blobstore.HTTPClient
 	contentAddressableStorage blobstore.BlobAccess
 	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
 // NewHttpFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
-func NewHttpFetcher(httpClient HTTPClient,
+func NewHttpFetcher(httpClient blobstore.HTTPClient,
 	contentAddressableStorage blobstore.BlobAccess,
 	allowUpdatesForInstances map[bb_digest.InstanceName]bool) remoteasset.FetchServer {
 	return &httpFetcher{
