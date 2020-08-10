@@ -14,9 +14,9 @@ proto_library(
     srcs = ["fetcher.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
         "@go_googleapis//google/rpc:status_proto",
     ],
 )

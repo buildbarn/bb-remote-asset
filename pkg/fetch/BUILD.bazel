@@ -6,8 +6,8 @@ go_library(
         "caching_fetcher.go",
         "error_fetcher.go",
         "http_fetcher.go",
-        "validating_fetcher.go",
         "logging_fetcher.go",
+        "validating_fetcher.go",
     ],
     importpath = "github.com/buildbarn/bb-asset-hub/pkg/fetch",
     visibility = ["//visibility:public"],
@@ -21,18 +21,18 @@ go_library(
         "@com_github_buildbarn_bb_storage//pkg/util:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+        "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "validating_fetcher_test.go",
         "caching_fetcher_test.go",
         "http_fetcher_test.go",
+        "validating_fetcher_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
