@@ -9,7 +9,6 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/buildbarn/bb-storage/pkg/proto/asset";
 
 message AssetReference {
-  
   // URI associated with this asset
   string uri = 1;
 
@@ -19,13 +18,13 @@ message AssetReference {
 }
 
 message Asset {
-
   // Digest in CAS pointed at by this asset
   build.bazel.remote.execution.v2.Digest digest = 1;
 
   // Time after which this Asset shouldn't be returned on a Fetch
   google.protobuf.Timestamp expire_at = 2;
 
-  // Time at which this Asset was last Push'd or Fetch'd from a remote into the store
+  // Time at which this Asset was last Push'd or Fetch'd from a remote into the
+  // store
   google.protobuf.Timestamp last_updated = 3;
 }

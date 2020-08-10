@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 	"github.com/buildbarn/bb-asset-hub/internal/mock"
+	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 
-	"github.com/stretchr/testify/require"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,7 +26,7 @@ func TestFetchBlobUriRequirement(t *testing.T) {
 	}
 	badRequest := &remoteasset.FetchBlobRequest{
 		InstanceName: "",
-		Uris:          []string{},
+		Uris:         []string{},
 	}
 	mockFetcher := mock.NewMockFetchServer(ctrl)
 
@@ -34,8 +34,8 @@ func TestFetchBlobUriRequirement(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockFetcher.EXPECT().FetchBlob(ctx, request).Return(&remoteasset.FetchBlobResponse{
-			Status: status.New(codes.OK, "Success!").Proto(),
-			Uri: uri,
+			Status:     status.New(codes.OK, "Success!").Proto(),
+			Uri:        uri,
 			BlobDigest: &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123},
 		}, nil)
 		response, err := validatingFetcher.FetchBlob(ctx, request)
@@ -68,8 +68,8 @@ func TestFetchDirectoryUriRequirement(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockFetcher.EXPECT().FetchDirectory(ctx, request).Return(&remoteasset.FetchDirectoryResponse{
-			Status: status.New(codes.OK, "Success!").Proto(),
-			Uri: uri,
+			Status:              status.New(codes.OK, "Success!").Proto(),
+			Uri:                 uri,
 			RootDirectoryDigest: &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123},
 		}, nil)
 		response, err := validatingFetcher.FetchDirectory(ctx, request)

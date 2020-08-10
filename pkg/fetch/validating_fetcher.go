@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
 	"google.golang.org/grpc/codes"
@@ -12,8 +13,8 @@ type validatingFetcher struct {
 	fetcher remoteasset.FetchServer
 }
 
-// NewAssetFetchServer creates a blank Fetcher with both FetchBlob
-// and FetchDirectory unimplemented
+// NewValidatingFetcher creates a fetcher that validates Fetch* requests are valid,
+// before passing on to a backend
 func NewValidatingFetcher(fetcher remoteasset.FetchServer) remoteasset.FetchServer {
 	return &validatingFetcher{
 		fetcher: fetcher,

@@ -27,11 +27,11 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 	blobDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
 	uri := "https://example.com/example.txt"
 	qualifiers := []*remoteasset.Qualifier{
-		&remoteasset.Qualifier{
+		{
 			Name:  "foo",
 			Value: "bar",
 		},
-		&remoteasset.Qualifier{
+		{
 			Name:  "biff",
 			Value: "boff",
 		},
@@ -70,7 +70,7 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 	rootDirectoryDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
 	uri := "https://example.com/example.txt"
 	qualifiers := []*remoteasset.Qualifier{
-		&remoteasset.Qualifier{
+		{
 			Name:  "resource_type",
 			Value: "application/x-git",
 		},

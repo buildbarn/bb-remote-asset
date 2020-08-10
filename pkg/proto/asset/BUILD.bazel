@@ -15,7 +15,7 @@ proto_library(
 
 go_proto_library(
     name = "asset_go_proto",
-    importpath = "github.com/buildbarn/bb-asset-hub/pkg/proto/asset",
+    importpath = "github.com/buildbarn/bb-asset-hub/pkg/proto/asset",  # keep
     proto = ":asset_proto",
     visibility = ["//visibility:public"],
     deps = [
@@ -27,6 +27,6 @@ go_proto_library(
 go_library(
     name = "go_default_library",
     embed = [":asset_go_proto"],
-    importpath = "github.com/buildbarn/bb-asset-hub/pkg/proto/asset",
+    importpath = "github.com/buildbarn/bb-asset-hub/pkg/proto/asset",  # keep
     visibility = ["//visibility:public"],
 )

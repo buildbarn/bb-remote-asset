@@ -1,8 +1,8 @@
 package fetch
 
 import (
-	"log"
 	"context"
+	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 )
