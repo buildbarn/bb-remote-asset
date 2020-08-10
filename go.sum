@@ -100,6 +100,7 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/buildbarn/bb-storage v0.0.0-20200802055539-f0281e269c07 h1:XkZNtqFiqfDzn2SYfObEKeGs5JqOIcMniOu/mIXyFYY=
 github.com/buildbarn/bb-storage v0.0.0-20200802055539-f0281e269c07/go.mod h1:1jAvzPmKXMQPMSY2cfwVtsPRIzRY0SjJGcTZjLFc+v8=
+github.com/buildbarn/bb-storage v0.0.0-20200810194216-94a85b49d206 h1:3iIeKIDawX2iCnx88L6rtJK/ijyeumAv9/OM1/Oq4pA=
 github.com/census-instrumentation/opencensus-proto v0.2.0/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/census-instrumentation/opencensus-proto v0.2.1 h1:glEXhBS5PSLLv4IXzLA5yPRVX4bilULVyxxbrfOtDAk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
