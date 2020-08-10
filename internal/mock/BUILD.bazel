@@ -29,15 +29,15 @@ gomock(
     out = "fetcher.go",
     interfaces = ["FetchServer"],
     library = "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
-    package = "mock"
+    package = "mock",
 )
 
 go_library(
     name = "go_default_library",
     srcs = [
+        ":aliases.go",
         ":blobstore.go",
         ":fetcher.go",
-        ":aliases.go",
     ],
     importpath = "github.com/buildbarn/bb-asset-hub/internal/mock",
     visibility = ["//:__subpackages__"],
