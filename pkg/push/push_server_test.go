@@ -26,12 +26,23 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 	require.NoError(t, err)
 	blobDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
 	uri := "https://example.com/example.txt"
+	qualifiers := []*remoteasset.Qualifier{
+		&remoteasset.Qualifier{
+			Name:  "foo",
+			Value: "bar",
+		},
+		&remoteasset.Qualifier{
+			Name:  "biff",
+			Value: "boff",
+		},
+	}
 	request := &remoteasset.PushBlobRequest{
 		InstanceName: "",
 		Uris:         []string{uri},
 		BlobDigest:   blobDigest,
+		Qualifiers:   qualifiers,
 	}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, qualifiers), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -58,12 +69,19 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 	require.NoError(t, err)
 	rootDirectoryDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
 	uri := "https://example.com/example.txt"
+	qualifiers := []*remoteasset.Qualifier{
+		&remoteasset.Qualifier{
+			Name:  "resource_type",
+			Value: "application/x-git",
+		},
+	}
 	request := &remoteasset.PushDirectoryRequest{
 		InstanceName:        "",
 		Uris:                []string{uri},
 		RootDirectoryDigest: rootDirectoryDigest,
+		Qualifiers:          qualifiers,
 	}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, qualifiers), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
