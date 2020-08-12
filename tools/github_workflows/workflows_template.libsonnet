@@ -137,10 +137,5 @@
       on: { pull_request: { branches: ['master'] } },
       jobs: getJobs(binaries, containers, false),
     },
-    'branches.yaml': {
-      name: 'branches',
-      on: 'push',
-      jobs: getJobs(binaries, containers, false),
-    }
   },
 }
