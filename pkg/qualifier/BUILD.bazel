@@ -1,0 +1,11 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["qualifier_set.go"],
+    importpath = "github.com/buildbarn/bb-asset-hub/pkg/qualifier",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
+    ],
+)

@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/buildbarn/bb-remote-asset/internal/mock"
-	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
+	"github.com/buildbarn/bb-asset-hub/internal/mock"
+	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
+	"github.com/buildbarn/bb-asset-hub/pkg/qualifier"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -28,11 +29,12 @@ func TestFetchBlobUriRequirement(t *testing.T) {
 		InstanceName: "",
 		Uris:         []string{},
 	}
-	mockFetcher := mock.NewMockFetchServer(ctrl)
+	mockFetcher := mock.NewMockFetcher(ctrl)
 
 	validatingFetcher := fetch.NewValidatingFetcher(mockFetcher)
 
 	t.Run("Success", func(t *testing.T) {
+		mockFetcher.EXPECT().CheckQualifiers(qualifier.Set{}).Return(qualifier.Set{})
 		mockFetcher.EXPECT().FetchBlob(ctx, request).Return(&remoteasset.FetchBlobResponse{
 			Status:     status.New(codes.OK, "Success!").Proto(),
 			Uri:        uri,
@@ -62,11 +64,12 @@ func TestFetchDirectoryUriRequirement(t *testing.T) {
 		InstanceName: "",
 		Uris:         []string{},
 	}
-	mockFetcher := mock.NewMockFetchServer(ctrl)
+	mockFetcher := mock.NewMockFetcher(ctrl)
 
 	validatingFetcher := fetch.NewValidatingFetcher(mockFetcher)
 
 	t.Run("Success", func(t *testing.T) {
+		mockFetcher.EXPECT().CheckQualifiers(qualifier.Set{}).Return(qualifier.Set{})
 		mockFetcher.EXPECT().FetchDirectory(ctx, request).Return(&remoteasset.FetchDirectoryResponse{
 			Status:              status.New(codes.OK, "Success!").Proto(),
 			Uri:                 uri,
