@@ -11,8 +11,6 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 
-	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -21,8 +19,8 @@ import (
 // server from a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
-	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (remoteasset.FetchServer, error) {
-	var fetcher remoteasset.FetchServer
+	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (fetch.Fetcher, error) {
+	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
 		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, casBlobAccessCreator)

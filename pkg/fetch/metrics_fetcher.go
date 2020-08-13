@@ -6,6 +6,7 @@ import (
 	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,7 +38,7 @@ var (
 )
 
 type metricsFetcher struct {
-	fetcher remoteasset.FetchServer
+	fetcher Fetcher
 	clock   clock.Clock
 
 	fetchBlobBlobSizeBytes        prometheus.Observer
@@ -46,7 +47,7 @@ type metricsFetcher struct {
 }
 
 // NewMetricsFetcher creates a fetcher which logs metrics to prometheus
-func NewMetricsFetcher(fetcher remoteasset.FetchServer, clock clock.Clock, name string) remoteasset.FetchServer {
+func NewMetricsFetcher(fetcher Fetcher, clock clock.Clock, name string) Fetcher {
 	httpFetcherOperationsPrometheusMetrics.Do(func() {
 		prometheus.MustRegister(httpFetcherOperationsBlobSizeBytes)
 		prometheus.MustRegister(blobAccessOperationsDurationSeconds)
@@ -87,4 +88,8 @@ func (mf *metricsFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	}
 	mf.updateDurationSeconds(mf.fetchDirectoryDurationSeconds, codes.Code(resp.Status.Code), timeStart)
 	return resp, err
+}
+
+func (mf *metricsFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
+	return mf.fetcher.CheckQualifiers(qualifiers)
 }

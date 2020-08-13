@@ -27,8 +27,8 @@ gomock(
 gomock(
     name = "fetcher",
     out = "fetcher.go",
-    interfaces = ["FetchServer"],
-    library = "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
+    interfaces = ["Fetcher"],
+    library = "//pkg/fetch:go_default_library",
     package = "mock",
 )
 
@@ -42,6 +42,7 @@ go_library(
     importpath = "github.com/buildbarn/bb-remote-asset/internal/mock",
     visibility = ["//:__subpackages__"],
     deps = [
+        "//pkg/qualifier:go_default_library",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/local:go_default_library",
