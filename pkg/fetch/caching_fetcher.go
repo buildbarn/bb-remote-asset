@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/buildbarn/bb-remote-asset/pkg/storage"
+	"github.com/buildbarn/bb-asset-hub/pkg/qualifier"
+	"github.com/buildbarn/bb-asset-hub/pkg/storage"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/golang/protobuf/ptypes"
@@ -17,13 +18,13 @@ import (
 )
 
 type cachingFetcher struct {
-	fetcher    remoteasset.FetchServer
+	fetcher    Fetcher
 	assetStore *storage.AssetStore
 }
 
 // NewCachingFetcher creates a decorator for remoteasset.FetchServer implementations to avoid having to fetch the
 // blob remotely multiple times
-func NewCachingFetcher(fetcher remoteasset.FetchServer, assetStore *storage.AssetStore) remoteasset.FetchServer {
+func NewCachingFetcher(fetcher Fetcher, assetStore *storage.AssetStore) Fetcher {
 	return &cachingFetcher{
 		fetcher:    fetcher,
 		assetStore: assetStore,
@@ -161,6 +162,10 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	}
 
 	return response, nil
+}
+
+func (cf *cachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
+	return cf.fetcher.CheckQualifiers(qualifiers)
 }
 
 func getDefaultTimestamp() *timestamp.Timestamp {

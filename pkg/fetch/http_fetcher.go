@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/buildbarn/bb-asset-hub/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
@@ -30,7 +31,7 @@ type httpFetcher struct {
 // assets over HTTP and storing them into a CAS.
 func NewHTTPFetcher(httpClient blobstore.HTTPClient,
 	contentAddressableStorage blobstore.BlobAccess,
-	allowUpdatesForInstances map[bb_digest.InstanceName]bool) remoteasset.FetchServer {
+	allowUpdatesForInstances map[bb_digest.InstanceName]bool) Fetcher {
 	return &httpFetcher{
 		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,
@@ -80,6 +81,10 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 
 func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	return nil, status.Errorf(codes.PermissionDenied, "HTTP Fetching of directories is not supported!")
+}
+
+func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
+	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri"}))
 }
 
 func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string) (buffer.Buffer, bb_digest.Digest) {

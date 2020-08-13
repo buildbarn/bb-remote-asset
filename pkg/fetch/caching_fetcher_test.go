@@ -40,7 +40,7 @@ func TestFetchBlobCaching(t *testing.T) {
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
-	mockFetcher := mock.NewMockFetchServer(ctrl)
+	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
 	t.Run("Success", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestFetchDirectoryCaching(t *testing.T) {
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
-	mockFetcher := mock.NewMockFetchServer(ctrl)
+	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
 	t.Run("Success", func(t *testing.T) {
