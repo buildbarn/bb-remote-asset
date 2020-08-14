@@ -86,3 +86,79 @@ func TestFetchDirectoryUriRequirement(t *testing.T) {
 		require.Equal(t, status.Code(err), codes.InvalidArgument)
 	})
 }
+
+func TestFetchBlobUnsupportedQualifier(t *testing.T) {
+	ctrl, ctx := gomock.WithContext(context.Background(), t)
+
+	uri := "https://example.com/example.txt"
+	request := &remoteasset.FetchBlobRequest{
+		InstanceName: "",
+		Uris:         []string{uri},
+		Qualifiers: []*remoteasset.Qualifier{
+			{
+				Name:  "foo",
+				Value: "bar",
+			},
+		},
+	}
+
+	mockFetcher := mock.NewMockFetcher(ctrl)
+	validatingFetcher := fetch.NewValidatingFetcher(mockFetcher)
+
+	t.Run("Success", func(t *testing.T) {
+		mockFetcher.EXPECT().CheckQualifiers(qualifier.NewSet([]string{"foo"})).Return(qualifier.Set{})
+		mockFetcher.EXPECT().FetchBlob(ctx, request).Return(&remoteasset.FetchBlobResponse{
+			Status:     status.New(codes.OK, "Success!").Proto(),
+			Uri:        uri,
+			BlobDigest: &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123},
+		}, nil)
+		response, err := validatingFetcher.FetchBlob(ctx, request)
+		require.NoError(t, err)
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+	})
+
+	t.Run("Failure", func(t *testing.T) {
+		mockFetcher.EXPECT().CheckQualifiers(qualifier.NewSet([]string{"foo"})).Return(qualifier.NewSet([]string{"foo"}))
+		response, err := validatingFetcher.FetchBlob(ctx, request)
+		require.Nil(t, response)
+		require.Equal(t, status.Code(err), codes.InvalidArgument)
+	})
+}
+
+func TestFetchDirectoryUnsupportedQualifier(t *testing.T) {
+	ctrl, ctx := gomock.WithContext(context.Background(), t)
+
+	uri := "https://example.com/example.txt"
+	request := &remoteasset.FetchDirectoryRequest{
+		InstanceName: "",
+		Uris:         []string{uri},
+		Qualifiers: []*remoteasset.Qualifier{
+			{
+				Name:  "foo",
+				Value: "bar",
+			},
+		},
+	}
+
+	mockFetcher := mock.NewMockFetcher(ctrl)
+	validatingFetcher := fetch.NewValidatingFetcher(mockFetcher)
+
+	t.Run("Success", func(t *testing.T) {
+		mockFetcher.EXPECT().CheckQualifiers(qualifier.NewSet([]string{"foo"})).Return(qualifier.Set{})
+		mockFetcher.EXPECT().FetchDirectory(ctx, request).Return(&remoteasset.FetchDirectoryResponse{
+			Status:              status.New(codes.OK, "Success!").Proto(),
+			Uri:                 uri,
+			RootDirectoryDigest: &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123},
+		}, nil)
+		response, err := validatingFetcher.FetchDirectory(ctx, request)
+		require.NoError(t, err)
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+	})
+
+	t.Run("Failure", func(t *testing.T) {
+		mockFetcher.EXPECT().CheckQualifiers(qualifier.NewSet([]string{"foo"})).Return(qualifier.NewSet([]string{"foo"}))
+		response, err := validatingFetcher.FetchDirectory(ctx, request)
+		require.Nil(t, response)
+		require.Equal(t, status.Code(err), codes.InvalidArgument)
+	})
+}
