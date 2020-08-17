@@ -8,7 +8,7 @@ go_library(
         "asset_store.go",
         "qualifier_container.go",
     ],
-    importpath = "github.com/buildbarn/bb-asset-hub/pkg/storage",
+    importpath = "github.com/buildbarn/bb-remote-asset/pkg/storage",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/proto/asset:go_default_library",

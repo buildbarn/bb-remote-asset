@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/proto/asset"
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"

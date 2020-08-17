@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/buildbarn/bb-asset-hub/internal/mock"
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
+	"github.com/buildbarn/bb-remote-asset/internal/mock"
+	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 

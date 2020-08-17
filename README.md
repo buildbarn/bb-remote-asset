@@ -7,13 +7,13 @@ This protocol is used by tools such as [bazel](https://github.com/bazelbuild/baz
 [buildstream](https://gitlab.com/BuildStream/buildstream) to provide a mapping
 between URIs and qualifiers to digests which can be used by the [remote execution](https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/execution/v2/remote_execution.proto) (REv2) protocol.
 
-The asset hub daemon can be configured with [bb-storage](https://github.com/buildbarn/bb-storage) blobstore backends to
+The remote asset daemon can be configured with [bb-storage](https://github.com/buildbarn/bb-storage) blobstore backends to
 enable a scalable remote asset service which can be integrated with any REv2 compatible GRPC cache.
 
-## Setting up the Asset Hub daemon
+## Setting up the Remote Asset daemon
 
 ```
-$ cat config/bb_asset_hub.jsonnet
+$ cat config/bb_remote_asset.jsonnet
 {
   fetcher: {
     caching: {
@@ -49,8 +49,8 @@ $ docker run \
     -p 8981:8981 \
     -v $(pwd)/config:/config \
     -v $(pwd)/storage-asset:/storage-asset \
-    bazel/cmd/bb_asset_hub:bb_asset_hub_container \
-    /config/bb_asset_hub.jsonnet
+    bazel/cmd/bb_remote_asset:bb_remote_asset_container \
+    /config/bb_remote_asset.jsonnet
 ```
 
 In the example above, the daemon is configured to store asset references within a

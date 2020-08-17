@@ -7,11 +7,11 @@ import (
 	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/configuration"
-	"github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub"
-	"github.com/buildbarn/bb-asset-hub/pkg/push"
-	"github.com/buildbarn/bb-asset-hub/pkg/storage"
-	asset_configuration "github.com/buildbarn/bb-asset-hub/pkg/storage/blobstore"
+	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
+	"github.com/buildbarn/bb-remote-asset/pkg/push"
+	"github.com/buildbarn/bb-remote-asset/pkg/storage"
+	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
@@ -39,9 +39,9 @@ type timestampDelta struct {
 
 func main() {
 	if len(os.Args) != 2 {
-		log.Fatal("Usage: bb_asset_hub bb_asset_hub.jsonnet")
+		log.Fatal("Usage: bb_remote_asset bb_remote_asset.jsonnet")
 	}
-	var config bb_asset_hub.ApplicationConfiguration
+	var config bb_remote_asset.ApplicationConfiguration
 	if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
 		log.Fatalf("Failed to read configuration from %s: %s", os.Args[1], err)
 	}

@@ -5,11 +5,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/buildbarn/bb-asset-hub/cmd/bb_asset_hub",
+    importpath = "github.com/buildbarn/bb-remote-asset/cmd/bb_remote_asset",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/configuration:go_default_library",
-        "//pkg/proto/configuration/bb_asset_hub:go_default_library",
+        "//pkg/proto/configuration/bb_remote_asset:go_default_library",
         "//pkg/push:go_default_library",
         "//pkg/storage:go_default_library",
         "//pkg/storage/blobstore:go_default_library",
@@ -25,21 +25,21 @@ go_library(
 )
 
 go_binary(
-    name = "bb_asset_hub",
+    name = "bb_remote_asset",
     embed = [":go_default_library"],
     pure = "on",
     visibility = ["//visibility:public"],
 )
 
 go_image(
-    name = "bb_asset_hub_container",
+    name = "bb_remote_asset_container",
     embed = [":go_default_library"],
     pure = "on",
     visibility = ["//visibility:public"],
 )
 
 container_push_official(
-    name = "bb_asset_hub_container_push",
-    component = "bb-asset-hub",
-    image = ":bb_asset_hub_container",
+    name = "bb_remote_asset_container_push",
+    component = "bb-remote-asset",
+    image = ":bb_remote_asset_container",
 )

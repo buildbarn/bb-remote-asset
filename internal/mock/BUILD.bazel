@@ -39,7 +39,7 @@ go_library(
         ":blobstore.go",
         ":fetcher.go",
     ],
-    importpath = "github.com/buildbarn/bb-asset-hub/internal/mock",
+    importpath = "github.com/buildbarn/bb-remote-asset/internal/mock",
     visibility = ["//:__subpackages__"],
     deps = [
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
