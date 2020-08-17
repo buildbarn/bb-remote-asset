@@ -4,7 +4,7 @@ import (
 	"context"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/storage"
+	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"google.golang.org/grpc/codes"

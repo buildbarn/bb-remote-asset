@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package buildbarn.configuration.bb_asset_hub.fetch;
+package buildbarn.configuration.bb_remote_asset.fetch;
 
 import "google/rpc/status.proto";
 import "pkg/proto/configuration/blobstore/blobstore.proto";
 
-option go_package = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub/fetch";
+option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch";
 
 message FetcherConfiguration {
   oneof backend {

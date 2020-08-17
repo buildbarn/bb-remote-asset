@@ -1,4 +1,4 @@
-workspace(name = "com_github_buildbarn_bb_asset_hub")
+workspace(name = "com_github_buildbarn_bb_remote_asset")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 

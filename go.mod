@@ -1,4 +1,4 @@
-module github.com/buildbarn/bb-asset-hub
+module github.com/buildbarn/bb-remote-asset
 
 go 1.13
 

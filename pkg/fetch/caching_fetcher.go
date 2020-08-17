@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/storage"
+	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/golang/protobuf/ptypes"

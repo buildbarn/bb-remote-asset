@@ -50,7 +50,7 @@
             },
             {
                "name": "freebsd_amd64: build and test",
-               "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:freebsd_amd64 //cmd/bb_asset_hub"
+               "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:freebsd_amd64 //cmd/bb_remote_asset"
             },
             {
                "name": "windows_amd64: build and test",

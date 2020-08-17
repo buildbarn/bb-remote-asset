@@ -7,7 +7,7 @@ go_library(
         "asset_blob_access_replicator.go",
         "asset_storage_type.go",
     ],
-    importpath = "github.com/buildbarn/bb-asset-hub/pkg/storage/blobstore",
+    importpath = "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/proto/asset:go_default_library",

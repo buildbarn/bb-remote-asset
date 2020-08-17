@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
-	pb "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub/fetch"
-	"github.com/buildbarn/bb-asset-hub/pkg/storage"
+	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
+	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
+	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 

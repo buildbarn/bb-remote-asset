@@ -7,7 +7,7 @@ import (
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/proto/asset"
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/protobuf/proto"
 )

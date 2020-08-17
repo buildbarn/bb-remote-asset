@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-package buildbarn.configuration.bb_asset_hub;
+package buildbarn.configuration.bb_remote_asset;
 
 import "pkg/proto/configuration/blobstore/blobstore.proto";
 import "pkg/proto/configuration/global/global.proto";
 import "pkg/proto/configuration/grpc/grpc.proto";
-import "pkg/proto/configuration/bb_asset_hub/fetch/fetcher.proto";
+import "pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto";
 
-option go_package = "github.com/buildbarn/bb-asset-hub/pkg/proto/configuration/bb_asset_hub";
+option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset";
 
 message ApplicationConfiguration {
   // Asset store configuration for the Fetch and Push servers
@@ -32,5 +32,5 @@ message ApplicationConfiguration {
   repeated string allow_updates_for_instances = 7;
 
   // Configuration for remote asset FetchServer
-  buildbarn.configuration.bb_asset_hub.fetch.FetcherConfiguration fetcher = 8;
+  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher = 8;
 }

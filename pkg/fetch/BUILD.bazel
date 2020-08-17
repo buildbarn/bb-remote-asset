@@ -9,7 +9,7 @@ go_library(
         "logging_fetcher.go",
         "validating_fetcher.go",
     ],
-    importpath = "github.com/buildbarn/bb-asset-hub/pkg/fetch",
+    importpath = "github.com/buildbarn/bb-remote-asset/pkg/fetch",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/storage:go_default_library",

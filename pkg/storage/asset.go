@@ -2,7 +2,7 @@ package storage
 
 import (
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
-	"github.com/buildbarn/bb-asset-hub/pkg/proto/asset"
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 )

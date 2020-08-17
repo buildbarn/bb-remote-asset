@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/buildbarn/bb-asset-hub/internal/mock"
-	"github.com/buildbarn/bb-asset-hub/pkg/fetch"
+	"github.com/buildbarn/bb-remote-asset/internal/mock"
+	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
