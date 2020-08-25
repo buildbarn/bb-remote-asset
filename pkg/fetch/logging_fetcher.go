@@ -5,7 +5,7 @@ import (
 	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/qualifier"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"google.golang.org/grpc/status"
 )
 

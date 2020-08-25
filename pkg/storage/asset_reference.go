@@ -8,6 +8,7 @@ import (
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/protobuf/proto"
 )
@@ -16,9 +17,9 @@ import (
 // of qualifiers. Mainly this is a wrapper to ensure the qualifiers get
 // sorted
 func NewAssetReference(uri string, qualifiers []*remoteasset.Qualifier) *asset.AssetReference {
-	sortedQualifiers := qualifierContainer(qualifiers)
+	sortedQualifiers := qualifier.Sorter(qualifiers)
 	sort.Sort(sortedQualifiers)
-	return &asset.AssetReference{Uri: uri, Qualifiers: sortedQualifiers.toArray()}
+	return &asset.AssetReference{Uri: uri, Qualifiers: sortedQualifiers.ToArray()}
 }
 
 // AssetReferenceToDigest converts an AssetReference into a bb-storage Digest of its
