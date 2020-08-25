@@ -4,7 +4,7 @@ import (
 	"context"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/buildbarn/bb-asset-hub/pkg/qualifier"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 )
 
 // Fetcher is an abstraction around a Remote Asset API Fetch Server to allow for more consistent

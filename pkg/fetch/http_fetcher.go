@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/buildbarn/bb-asset-hub/pkg/qualifier"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
