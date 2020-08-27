@@ -32,5 +32,6 @@ message ApplicationConfiguration {
   repeated string allow_updates_for_instances = 7;
 
   // Configuration for remote asset FetchServer
-  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher = 8;
+  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher =
+      8;
 }

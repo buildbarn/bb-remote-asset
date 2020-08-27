@@ -22,13 +22,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	// rfc3339Milli is identical similar to the time.RFC3339 and
-	// time.RFC3339Nano formats, except that it shows the time in
-	// milliseconds.
-	rfc3339Milli = "2006-01-02T15:04:05.999Z07:00"
-)
-
 // timestampDelta is returned by the timestamp_proto_delta, returning a
 // timestamp and a duration relative to a previous timestamp value. It
 // can be used to display split times.
