@@ -12,6 +12,3 @@ import (
 
 // ReadCloser is an alias of io.ReadCloser.
 type ReadCloser = io.ReadCloser
-
-// Writer is an alias of io.Writer.
-type Writer = io.Writer
