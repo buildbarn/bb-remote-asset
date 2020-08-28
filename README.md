@@ -1,4 +1,4 @@
-# Buildbarn Remote Asset - Prototype
+# Buildbarn Remote Asset - Prototype [![Build status](https://github.com/buildbarn/bb-remote-asset/workflows/master/badge.svg)](https://github.com/buildbarn/bb-remote-asset/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/buildbarn/bb-remote-asset)](https://goreportcard.com/report/github.com/buildbarn/bb-remote-asset)
 
 **N.B** This repository provides tools which are in early development and may be subject to regular changes to functionality and/or configuration definitions.
 
