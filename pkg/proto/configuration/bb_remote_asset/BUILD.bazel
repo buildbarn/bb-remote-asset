@@ -14,7 +14,7 @@ proto_library(
     srcs = ["bb_remote_asset.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/proto/configuration/bb_remote_asset/fetch:fetch_proto",
+        "//pkg/proto/configuration/bb_remote_asset/fetch:fetcher_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",

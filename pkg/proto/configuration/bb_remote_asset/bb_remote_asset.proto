@@ -34,4 +34,7 @@ message ApplicationConfiguration {
   // Configuration for remote asset FetchServer
   buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher =
       8;
+
+  // Configuration for ac based PushServer
+  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.ActionCachingFetcherConfiguration pusher = 9;
 }

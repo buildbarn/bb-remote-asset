@@ -64,14 +64,16 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator)
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory)
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
 
-	pushServer := push.NewAssetPushServer(
-		assetStore,
-		allowUpdatesForInstances)
+	client, err := grpcClientFactory.NewClientFromConfiguration(config.Pusher.ActionCache)
+	if err != nil {
+		log.Fatal("Failed to initialize Action Cache client from configuration: ", err)
+	}
+	pushServer := push.NewActionCachingPushServer(config.Pusher.InstanceName, client)
 
 	// Spawn gRPC servers for client and worker traffic.
 	go func() {

@@ -4,6 +4,7 @@ package buildbarn.configuration.bb_remote_asset.fetch;
 
 import "google/rpc/status.proto";
 import "pkg/proto/configuration/blobstore/blobstore.proto";
+import "pkg/proto/configuration/grpc/grpc.proto";
 
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch";
 
@@ -22,6 +23,10 @@ message FetcherConfiguration {
     // Note that in jsonnet configuration, 'error' will need to be in quotes to
     // avoid collision with a protected keyword
     google.rpc.Status error = 3;
+
+    // Uses an Action Cache as the storage backend, translating Fetch requests into
+    // GetActionResult requests. Should be used with a complementary Push server.
+    ActionCachingFetcherConfiguration action_cache = 4;
   }
 
   message CachingFetcherConfiguration {
@@ -36,5 +41,13 @@ message FetcherConfiguration {
 
     // List of instances which can trigger an upload to the CAS
     repeated string allow_updates_for_instances = 2;
+  }
+
+  message ActionCachingFetcherConfiguration {
+    // Instance Name to use on the AC
+    string instance_name = 1;
+
+    // gRPC configuration for the remote AC
+    buildbarn.configuration.grpc.ClientConfiguration action_cache = 2;
   }
 }

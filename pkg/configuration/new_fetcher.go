@@ -9,6 +9,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,11 +19,12 @@ import (
 // a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore *storage.AssetStore,
-	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (fetch.Fetcher, error) {
+	casBlobAccessCreator blobstore_configuration.BlobAccessCreator,
+	grpcClientFactory bb_grpc.ClientFactory) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, casBlobAccessCreator)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory)
 		if err != nil {
 			return nil, err
 		}
@@ -51,6 +53,13 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			allowUpdatesForInstances)
 	case *pb.FetcherConfiguration_Error:
 		fetcher = fetch.NewErrorFetcher(backend.Error)
+	case *pb.FetcherConfiguration_ActionCache:
+		client, err := grpcClientFactory.NewClientFromConfiguration(backend.ActionCache.ActionCache)
+		if err != nil {
+			return nil, err
+		}
+		fetcher = fetch.NewActionCachingFetcher(backend.ActionCache.InstanceName, client)
+
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
