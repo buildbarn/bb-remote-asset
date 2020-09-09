@@ -12,16 +12,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type actionCachingPushServer struct {
+type actionCachingPusher struct {
 	instanceName                    string
 	actionCacheClient               remoteexecution.ActionCacheClient
 	contentAddressableStorageClient remoteexecution.ContentAddressableStorageClient
 	requestTranslator               translator.RequestTranslator
 }
 
-// NewActionCachingPushServer creates a new Push server using the ActionCache as a backend
-func NewActionCachingPushServer(instanceName string, client grpc.ClientConnInterface) remoteasset.PushServer {
-	return &actionCachingPushServer{
+// NewActionCachingPusher creates a new Push server using the ActionCache as a backend
+func NewActionCachingPusher(instanceName string, client grpc.ClientConnInterface) remoteasset.PushServer {
+	return &actionCachingPusher{
 		instanceName:                    instanceName,
 		actionCacheClient:               remoteexecution.NewActionCacheClient(client),
 		contentAddressableStorageClient: remoteexecution.NewContentAddressableStorageClient(client),
@@ -29,7 +29,7 @@ func NewActionCachingPushServer(instanceName string, client grpc.ClientConnInter
 	}
 }
 
-func (ac *actionCachingPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
+func (ac *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
 	action, command, err := ac.requestTranslator.PushBlobToAction(req)
 	if err != nil {
 		return nil, err
@@ -83,6 +83,6 @@ func (ac *actionCachingPushServer) PushBlob(ctx context.Context, req *remoteasse
 	return &remoteasset.PushBlobResponse{}, nil
 }
 
-func (ac *actionCachingPushServer) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
+func (ac *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "PushDirectory not implemented yet!")
 }

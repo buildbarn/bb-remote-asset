@@ -15,6 +15,7 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/proto/configuration/bb_remote_asset/fetch:fetcher_proto",
+        "//pkg/proto/configuration/bb_remote_asset/push:pusher_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
@@ -28,6 +29,7 @@ go_proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/proto/configuration/bb_remote_asset/fetch:go_default_library",
+        "//pkg/proto/configuration/bb_remote_asset/push:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:go_default_library",

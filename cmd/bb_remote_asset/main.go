@@ -9,7 +9,6 @@ import (
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
-	"github.com/buildbarn/bb-remote-asset/pkg/push"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
@@ -69,11 +68,10 @@ func main() {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
 
-	client, err := grpcClientFactory.NewClientFromConfiguration(config.Pusher.ActionCache)
+	pushServer, err := configuration.NewPusherFromConfiguration(config.Pusher, assetStore, grpcClientFactory)
 	if err != nil {
-		log.Fatal("Failed to initialize Action Cache client from configuration: ", err)
+		log.Fatal("Failed to initialize push server from configuration: ", err)
 	}
-	pushServer := push.NewActionCachingPushServer(config.Pusher.InstanceName, client)
 
 	// Spawn gRPC servers for client and worker traffic.
 	go func() {

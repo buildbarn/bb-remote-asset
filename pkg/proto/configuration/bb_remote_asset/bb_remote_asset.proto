@@ -6,6 +6,7 @@ import "pkg/proto/configuration/blobstore/blobstore.proto";
 import "pkg/proto/configuration/global/global.proto";
 import "pkg/proto/configuration/grpc/grpc.proto";
 import "pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto";
+import "pkg/proto/configuration/bb_remote_asset/push/pusher.proto";
 
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset";
 
@@ -36,5 +37,5 @@ message ApplicationConfiguration {
       8;
 
   // Configuration for ac based PushServer
-  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.ActionCachingFetcherConfiguration pusher = 9;
+  buildbarn.configuration.bb_remote_asset.push.PusherConfiguration pusher = 9;
 }

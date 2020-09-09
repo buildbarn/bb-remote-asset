@@ -55,7 +55,7 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 			return nil
 		})
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
-	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
+	pushServer := push.NewLocalCachingPusher(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	response, err := pushServer.PushBlob(ctx, request)
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 			return nil
 		})
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
-	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
+	pushServer := push.NewLocalCachingPusher(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	response, err := pushServer.PushDirectory(ctx, request)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestPushServerInvalidArgumentFailure(t *testing.T) {
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
-	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
+	pushServer := push.NewLocalCachingPusher(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	_, err = pushServer.PushBlob(ctx, blobRequest)
 	require.Equal(t, status.Error(codes.InvalidArgument, "PushBlob requires at least one URI"), err)
@@ -149,7 +149,7 @@ func TestPushServerBadInstanceName(t *testing.T) {
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
-	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
+	pushServer := push.NewLocalCachingPusher(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	_, err = pushServer.PushBlob(ctx, blobRequest)
 	require.Equal(t, status.Error(codes.PermissionDenied, "This service does not accept Blobs for instance \"bad\""), err)
