@@ -24,11 +24,11 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching, assetStore, casBlobAccessCreator, grpcClientFactory)
 		if err != nil {
 			return nil, err
 		}
-		fetcher = fetch.NewCachingFetcher(
+		fetcher = fetch.NewLocalCachingFetcher(
 			innerFetcher,
 			assetStore)
 	case *pb.FetcherConfiguration_Http:
@@ -58,7 +58,11 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		if err != nil {
 			return nil, err
 		}
-		fetcher = fetch.NewActionCachingFetcher(backend.ActionCache.InstanceName, client)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.ActionCache.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory)
+		if err != nil {
+			return nil, err
+		}
+		fetcher = fetch.NewActionCachingFetcher(innerFetcher, client)
 
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")

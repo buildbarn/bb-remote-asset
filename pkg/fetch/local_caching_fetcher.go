@@ -17,21 +17,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type cachingFetcher struct {
+type localCachingFetcher struct {
 	fetcher    Fetcher
 	assetStore *storage.AssetStore
 }
 
-// NewCachingFetcher creates a decorator for remoteasset.FetchServer implementations to avoid having to fetch the
+// NewLocalCachingFetcher creates a decorator for remoteasset.FetchServer implementations to avoid having to fetch the
 // blob remotely multiple times
-func NewCachingFetcher(fetcher Fetcher, assetStore *storage.AssetStore) Fetcher {
-	return &cachingFetcher{
+func NewLocalCachingFetcher(fetcher Fetcher, assetStore *storage.AssetStore) Fetcher {
+	return &localCachingFetcher{
 		fetcher:    fetcher,
 		assetStore: assetStore,
 	}
 }
 
-func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
+func (cf *localCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
@@ -99,7 +99,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 	return response, nil
 }
 
-func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
+func (cf *localCachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	return response, nil
 }
 
-func (cf *cachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
+func (cf *localCachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return cf.fetcher.CheckQualifiers(qualifiers)
 }
 

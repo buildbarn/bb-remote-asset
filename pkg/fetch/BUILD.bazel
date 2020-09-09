@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "action_caching_fetcher.go",
-        "caching_fetcher.go",
+        "local_caching_fetcher.go",
         "error_fetcher.go",
         "fetcher.go",
         "http_fetcher.go",
@@ -36,7 +36,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "caching_fetcher_test.go",
+        "local_caching_fetcher_test.go",
         "http_fetcher_test.go",
         "validating_fetcher_test.go",
     ],

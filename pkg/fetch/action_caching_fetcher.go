@@ -13,22 +13,22 @@ import (
 )
 
 type actionCachingFetcher struct {
-	instanceName      string
+	fetcher           Fetcher
 	actionCacheClient remoteexecution.ActionCacheClient
 	requestTranslator translator.RequestTranslator
 }
 
 // NewActionCachingFetcher creates a new Fetcher suitable for farming Fetch requests to an Action Cache
-func NewActionCachingFetcher(instanceName string, client grpc.ClientConnInterface) Fetcher {
+func NewActionCachingFetcher(fetcher Fetcher, client grpc.ClientConnInterface) Fetcher {
 	return &actionCachingFetcher{
-		instanceName:      instanceName,
+		fetcher:           fetcher,
 		actionCacheClient: remoteexecution.NewActionCacheClient(client),
 		requestTranslator: translator.RequestTranslator{},
 	}
 }
 
-func (ac *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	action, _, err := ac.requestTranslator.FetchBlobToAction(req)
+func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
+	action, _, err := acf.requestTranslator.FetchBlobToAction(req)
 	if err != nil {
 		return nil, err
 	}
@@ -37,36 +37,35 @@ func (ac *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.
 		return nil, err
 	}
 
-	actionResult, err := ac.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
-		InstanceName: ac.instanceName,
+	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
+		InstanceName: req.InstanceName,
 		ActionDigest: actionDigest,
 		InlineStdout: false,
 		InlineStderr: false,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	blobDigest := translator.EmptyDigest
-	for _, file := range actionResult.OutputFiles {
-		if file.Path != "out" {
-			continue
+	if err == nil {
+		blobDigest := translator.EmptyDigest
+		for _, file := range actionResult.OutputFiles {
+			if file.Path != "out" {
+				continue
+			}
+			blobDigest = file.Digest
 		}
-		blobDigest = file.Digest
-	}
 
-	return &remoteasset.FetchBlobResponse{
-		Status:     status.New(codes.OK, "Blob fetched successfully from asset cache").Proto(),
-		Uri:        req.Uris[0],
-		Qualifiers: req.Qualifiers,
-		BlobDigest: blobDigest,
-	}, nil
+		return &remoteasset.FetchBlobResponse{
+			Status:     status.New(codes.OK, "Blob fetched successfully from asset cache").Proto(),
+			Uri:        req.Uris[0],
+			Qualifiers: req.Qualifiers,
+			BlobDigest: blobDigest,
+		}, nil
+	}
+	return acf.fetcher.FetchBlob(ctx, req)
 }
 
-func (ac *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
+func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "FetchDirectory not implemented yet!")
 }
 
-func (ac *actionCachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
+func (acf *actionCachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Set{}
 }

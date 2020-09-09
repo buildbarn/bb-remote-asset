@@ -11,7 +11,7 @@ option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuratio
 message FetcherConfiguration {
   oneof backend {
     // Reads and writes to the AssetStore to return cached responses
-    CachingFetcherConfiguration caching = 1;
+    FetcherConfiguration caching = 1;
 
     // Downloads blobs over HTTP and place them into a CAS for retrieval over
     // REv2 ReadBlobs requests.
@@ -44,8 +44,8 @@ message FetcherConfiguration {
   }
 
   message ActionCachingFetcherConfiguration {
-    // Instance Name to use on the AC
-    string instance_name = 1;
+    // Fetcher to fall back to
+    FetcherConfiguration fetcher = 1;
 
     // gRPC configuration for the remote AC
     buildbarn.configuration.grpc.ClientConfiguration action_cache = 2;

@@ -13,24 +13,24 @@ import (
 )
 
 type actionCachingPusher struct {
-	instanceName                    string
+	pusher                          remoteasset.PushServer
 	actionCacheClient               remoteexecution.ActionCacheClient
 	contentAddressableStorageClient remoteexecution.ContentAddressableStorageClient
 	requestTranslator               translator.RequestTranslator
 }
 
 // NewActionCachingPusher creates a new Push server using the ActionCache as a backend
-func NewActionCachingPusher(instanceName string, client grpc.ClientConnInterface) remoteasset.PushServer {
+func NewActionCachingPusher(pusher remoteasset.PushServer, client grpc.ClientConnInterface) remoteasset.PushServer {
 	return &actionCachingPusher{
-		instanceName:                    instanceName,
+		pusher:                          pusher,
 		actionCacheClient:               remoteexecution.NewActionCacheClient(client),
 		contentAddressableStorageClient: remoteexecution.NewContentAddressableStorageClient(client),
 		requestTranslator:               translator.RequestTranslator{},
 	}
 }
 
-func (ac *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
-	action, command, err := ac.requestTranslator.PushBlobToAction(req)
+func (acp *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
+	action, command, err := acp.requestTranslator.PushBlobToAction(req)
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +52,10 @@ func (ac *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.Pu
 		return nil, err
 	}
 
-	actionResult := ac.requestTranslator.PushBlobToActionResult(req)
+	actionResult := acp.requestTranslator.PushBlobToActionResult(req)
 
-	_, err = ac.contentAddressableStorageClient.BatchUpdateBlobs(ctx, &remoteexecution.BatchUpdateBlobsRequest{
-		InstanceName: ac.instanceName,
+	_, err = acp.contentAddressableStorageClient.BatchUpdateBlobs(ctx, &remoteexecution.BatchUpdateBlobsRequest{
+		InstanceName: req.InstanceName,
 		Requests: []*remoteexecution.BatchUpdateBlobsRequest_Request{
 			&remoteexecution.BatchUpdateBlobsRequest_Request{
 				Digest: actionDigest,
@@ -71,8 +71,8 @@ func (ac *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.Pu
 		return nil, err
 	}
 
-	_, err = ac.actionCacheClient.UpdateActionResult(ctx, &remoteexecution.UpdateActionResultRequest{
-		InstanceName: ac.instanceName,
+	_, err = acp.actionCacheClient.UpdateActionResult(ctx, &remoteexecution.UpdateActionResultRequest{
+		InstanceName: req.InstanceName,
 		ActionDigest: actionDigest,
 		ActionResult: &actionResult,
 	})
@@ -80,9 +80,9 @@ func (ac *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.Pu
 		return nil, err
 	}
 
-	return &remoteasset.PushBlobResponse{}, nil
+	return acp.pusher.PushBlob(ctx, req)
 }
 
-func (ac *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
+func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "PushDirectory not implemented yet!")
 }

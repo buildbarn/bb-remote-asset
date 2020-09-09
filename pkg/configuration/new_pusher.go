@@ -32,7 +32,11 @@ func NewPusherFromConfiguration(configuration *pb.PusherConfiguration,
 		if err != nil {
 			return nil, err
 		}
-		pusher = push.NewActionCachingPusher(backend.ActionCache.InstanceName, client)
+		innerPusher, err := NewPusherFromConfiguration(backend.ActionCache.Pusher, assetStore, grpcClientFactory)
+		if err != nil {
+			return nil, err
+		}
+		pusher = push.NewActionCachingPusher(innerPusher, client)
 
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Pusher configuration is invalid as no supported Pushers are defined.")
