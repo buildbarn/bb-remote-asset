@@ -20,9 +20,9 @@ func NewErrorPusher(err *protostatus.Status) remoteasset.PushServer {
 }
 
 func (ep *errorPusher) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
-	return nil, status.ErrorProto(ep.err)
+	return &remoteasset.PushBlobResponse{}, status.ErrorProto(ep.err)
 }
 
 func (ep *errorPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
-	return nil, status.ErrorProto(ep.err)
+	return &remoteasset.PushDirectoryResponse{}, status.ErrorProto(ep.err)
 }

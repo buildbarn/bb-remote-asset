@@ -2,6 +2,7 @@ package translator
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -80,7 +81,7 @@ func ProtoToDigest(pb proto.Message) (*remoteexecution.Digest, error) {
 	hash := sha256.Sum256(wireFormat)
 
 	return &remoteexecution.Digest{
-		Hash:      string(hash[:]),
+		Hash:      hex.EncodeToString(hash[:]),
 		SizeBytes: int64(len(wireFormat)),
 	}, nil
 }

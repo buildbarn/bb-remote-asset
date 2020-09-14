@@ -22,7 +22,7 @@ message PusherConfiguration {
 
     // Uses an Action Cache as the storage backend, translating Fetch requests into
     // GetActionResult requests. Should be used with a complementary Push server.
-    ActionCachingPusherConfiguration action_cache = 4;
+    ActionCachingPusherConfiguration action_cache = 3;
   }
 
   message ActionCachingPusherConfiguration {
