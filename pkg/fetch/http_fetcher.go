@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -46,7 +47,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	if hf.allowUpdatesForInstances[instanceName] == false {
-		return nil, status.Errorf(codes.PermissionDenied, "This instance is not permitted to update the CAS.")
+		return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("This instance ('%s') is not permitted to update the CAS.", instanceName))
 	}
 
 	// TODO: Address the following fields
