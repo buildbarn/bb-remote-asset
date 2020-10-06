@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -14,14 +15,16 @@ import (
 
 type actionCachingFetcher struct {
 	fetcher           Fetcher
+	pusher            remoteasset.PushServer
 	actionCacheClient remoteexecution.ActionCacheClient
 	requestTranslator translator.RequestTranslator
 }
 
 // NewActionCachingFetcher creates a new Fetcher suitable for farming Fetch requests to an Action Cache
-func NewActionCachingFetcher(fetcher Fetcher, client grpc.ClientConnInterface) Fetcher {
+func NewActionCachingFetcher(fetcher Fetcher, pusher remoteasset.PushServer, client grpc.ClientConnInterface) Fetcher {
 	return &actionCachingFetcher{
 		fetcher:           fetcher,
+		pusher:            pusher,
 		actionCacheClient: remoteexecution.NewActionCacheClient(client),
 		requestTranslator: translator.RequestTranslator{},
 	}
@@ -37,6 +40,7 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		return nil, err
 	}
 
+	log.Printf("Looking in Action Cache: %v", req.Uris[0])
 	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
 		InstanceName: req.InstanceName,
 		ActionDigest: actionDigest,
@@ -44,6 +48,7 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		InlineStderr: false,
 	})
 	if err == nil {
+		log.Printf("Found in Action Cache: %v", req.Uris[0])
 		blobDigest := translator.EmptyDigest
 		for _, file := range actionResult.OutputFiles {
 			if file.Path != "out" {
@@ -59,7 +64,18 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 			BlobDigest: blobDigest,
 		}, nil
 	}
-	return acf.fetcher.FetchBlob(ctx, req)
+	response, err := acf.fetcher.FetchBlob(ctx, req)
+	if err != nil {
+		return response, err
+	}
+	pushReq := &remoteasset.PushBlobRequest{
+		InstanceName: req.InstanceName,
+		Uris:         req.Uris,
+		Qualifiers:   req.Qualifiers,
+		BlobDigest:   response.BlobDigest,
+	}
+	_, err = acf.pusher.PushBlob(ctx, pushReq)
+	return response, err
 }
 
 func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {

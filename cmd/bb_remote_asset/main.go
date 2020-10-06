@@ -63,14 +63,14 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory)
-	if err != nil {
-		log.Fatal("Failed to initialize fetch server from configuration: ", err)
-	}
-
 	pushServer, err := configuration.NewPusherFromConfiguration(config.Pusher, assetStore, grpcClientFactory)
 	if err != nil {
 		log.Fatal("Failed to initialize push server from configuration: ", err)
+	}
+
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory, pushServer)
+	if err != nil {
+		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
 
 	// Spawn gRPC servers for client and worker traffic.

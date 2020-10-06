@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
@@ -20,11 +21,11 @@ import (
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore *storage.AssetStore,
 	casBlobAccessCreator blobstore_configuration.BlobAccessCreator,
-	grpcClientFactory bb_grpc.ClientFactory) (fetch.Fetcher, error) {
+	grpcClientFactory bb_grpc.ClientFactory, pushServer remoteasset.PushServer) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching, assetStore, casBlobAccessCreator, grpcClientFactory)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching, assetStore, casBlobAccessCreator, grpcClientFactory, pushServer)
 		if err != nil {
 			return nil, err
 		}
@@ -58,11 +59,11 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		if err != nil {
 			return nil, err
 		}
-		innerFetcher, err := NewFetcherFromConfiguration(backend.ActionCache.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.ActionCache.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory, pushServer)
 		if err != nil {
 			return nil, err
 		}
-		fetcher = fetch.NewActionCachingFetcher(innerFetcher, client)
+		fetcher = fetch.NewActionCachingFetcher(innerFetcher, pushServer, client)
 
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
