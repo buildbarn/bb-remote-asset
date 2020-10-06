@@ -13,6 +13,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
@@ -72,6 +73,7 @@ func main() {
 	pushServer := push.NewAssetPushServer(
 		assetStore,
 		allowUpdatesForInstances)
+	metricsPushServer := push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
 
 	// Spawn gRPC servers for client and worker traffic.
 	go func() {
@@ -82,7 +84,7 @@ func main() {
 				func(s *grpc.Server) {
 					// Register services
 					remoteasset.RegisterFetchServer(s, fetchServer)
-					remoteasset.RegisterPushServer(s, pushServer)
+					remoteasset.RegisterPushServer(s, metricsPushServer)
 				}))
 	}()
 

@@ -8,6 +8,7 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
@@ -57,5 +58,6 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
 
-	return fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher)), nil
+	fetchServer := fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher))
+	return fetch.NewMetricsFetcher(fetchServer, clock.SystemClock, "fetch"), nil
 }
