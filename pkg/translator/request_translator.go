@@ -19,10 +19,11 @@ var EmptyDigest *remoteexecution.Digest = &remoteexecution.Digest{
 type RequestTranslator struct {
 }
 
-// PushBlobToAction converts a PushBlobRequest into a REAPI Action
-func (rt *RequestTranslator) PushBlobToAction(req *remoteasset.PushBlobRequest) (remoteexecution.Action, remoteexecution.Command, error) {
+// URIsToAction converts the URIs from a Push{Blob,Directory}Request
+// into a REAPI Action
+func (rt *RequestTranslator) URIsToAction(uris []string) (remoteexecution.Action, remoteexecution.Command, error) {
 	command := remoteexecution.Command{
-		Arguments:   []string{"curl", "-o", "out", req.Uris[0]},
+		Arguments:   []string{"curl", "-o", "out", uris[0]},
 		OutputPaths: []string{"out"},
 	}
 	commandDigest, err := ProtoToDigest(&command)
@@ -45,6 +46,22 @@ func (rt *RequestTranslator) PushBlobToActionResult(req *remoteasset.PushBlobReq
 			&remoteexecution.OutputFile{
 				Path:   "out",
 				Digest: req.BlobDigest,
+			},
+		},
+		ExitCode: 0,
+	}
+
+	return actionResult
+}
+
+// PushDirectoryToActionResult converts a PushDirectoryRequest into a
+// REAPI ActionResult to be pushed into the Action Cache
+func (rt *RequestTranslator) PushDirectoryToActionResult(req *remoteasset.PushDirectoryRequest) remoteexecution.ActionResult {
+	actionResult := remoteexecution.ActionResult{
+		OutputDirectories: []*remoteexecution.OutputDirectory{
+			&remoteexecution.OutputDirectory{
+				Path:       "out",
+				TreeDigest: req.RootDirectoryDigest,
 			},
 		},
 		ExitCode: 0,

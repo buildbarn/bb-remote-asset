@@ -31,7 +31,7 @@ func NewActionCachingFetcher(fetcher Fetcher, pusher remoteasset.PushServer, cli
 }
 
 func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	action, _, err := acf.requestTranslator.FetchBlobToAction(req)
+	action, _, err := acf.requestTranslator.URIsToAction(req.Uris)
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +74,48 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		Qualifiers:   req.Qualifiers,
 		BlobDigest:   response.BlobDigest,
 	}
+	log.Printf("Pushing to Action Cache: %v", req.Uris[0])
 	_, err = acf.pusher.PushBlob(ctx, pushReq)
 	return response, err
 }
 
 func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "FetchDirectory not implemented yet!")
+	action, _, err := acf.requestTranslator.URIsToAction(req.Uris)
+	if err != nil {
+		return nil, err
+	}
+	actionDigest, err := translator.ProtoToDigest(&action)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Fetch URI: %#v, Action Digest: %#v", req.Uris, actionDigest)
+
+	log.Printf("Looking for directory in Action Cache: %v", req.Uris[0])
+	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
+		InstanceName: req.InstanceName,
+		ActionDigest: actionDigest,
+		InlineStdout: false,
+		InlineStderr: false,
+	})
+	if err == nil {
+		log.Printf("Found in Action Cache: %v", req.Uris[0])
+		dirDigest := translator.EmptyDigest
+		for _, dir := range actionResult.OutputDirectories {
+			if dir.Path != "out" {
+				continue
+			}
+			dirDigest = dir.TreeDigest
+		}
+
+		return &remoteasset.FetchDirectoryResponse{
+			Status:              status.New(codes.OK, "Directory fetched successfully from asset cache").Proto(),
+			Uri:                 req.Uris[0],
+			Qualifiers:          req.Qualifiers,
+			RootDirectoryDigest: dirDigest,
+		}, nil
+	}
+	log.Printf("Fetch Error: %v", err)
+	return nil, status.Error(codes.NotFound, "Directory not found in Asset Cache")
 }
 
 func (acf *actionCachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {

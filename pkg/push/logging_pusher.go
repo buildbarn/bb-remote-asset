@@ -31,7 +31,7 @@ func (lp *loggingPusher) PushBlob(ctx context.Context, req *remoteasset.PushBlob
 }
 
 func (lp *loggingPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
-	log.Printf("Pushing Blob %s with qualifiers %s to be %s", req.Uris, req.Qualifiers, req.RootDirectoryDigest)
+	log.Printf("Pushing Directory %s with qualifiers %s to be %s", req.Uris, req.Qualifiers, req.RootDirectoryDigest)
 	resp, err := lp.pusher.PushDirectory(ctx, req)
 	if err == nil {
 		log.Printf("PushDirectory completed for %s successfully", req.Uris)

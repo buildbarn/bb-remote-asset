@@ -2,14 +2,13 @@ package push
 
 import (
 	"context"
+	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-remote-asset/pkg/translator"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type actionCachingPusher struct {
@@ -30,7 +29,7 @@ func NewActionCachingPusher(pusher remoteasset.PushServer, client grpc.ClientCon
 }
 
 func (acp *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
-	action, command, err := acp.requestTranslator.PushBlobToAction(req)
+	action, command, err := acp.requestTranslator.URIsToAction(req.Uris)
 	if err != nil {
 		return nil, err
 	}
@@ -84,5 +83,56 @@ func (acp *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.P
 }
 
 func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "PushDirectory not implemented yet!")
+	log.Printf("Request: %v", req)
+	action, command, err := acp.requestTranslator.URIsToAction(req.Uris)
+	if err != nil {
+		return nil, err
+	}
+	actionPb, err := proto.Marshal(&action)
+	if err != nil {
+		return nil, err
+	}
+	actionDigest, err := translator.ProtoToDigest(&action)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("URI: %#v, Action Digest: %#v", req.Uris, actionDigest)
+
+	commandPb, err := proto.Marshal(&command)
+	if err != nil {
+		return nil, err
+	}
+	commandDigest, err := translator.ProtoToDigest(&command)
+	if err != nil {
+		return nil, err
+	}
+	actionResult := acp.requestTranslator.PushDirectoryToActionResult(req)
+
+	_, err = acp.contentAddressableStorageClient.BatchUpdateBlobs(ctx, &remoteexecution.BatchUpdateBlobsRequest{
+		InstanceName: req.InstanceName,
+		Requests: []*remoteexecution.BatchUpdateBlobsRequest_Request{
+			&remoteexecution.BatchUpdateBlobsRequest_Request{
+				Digest: actionDigest,
+				Data:   actionPb,
+			},
+			&remoteexecution.BatchUpdateBlobsRequest_Request{
+				Digest: commandDigest,
+				Data:   commandPb,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = acp.actionCacheClient.UpdateActionResult(ctx, &remoteexecution.UpdateActionResultRequest{
+		InstanceName: req.InstanceName,
+		ActionDigest: actionDigest,
+		ActionResult: &actionResult,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return acp.pusher.PushDirectory(ctx, req)
 }

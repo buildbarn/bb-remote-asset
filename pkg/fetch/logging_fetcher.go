@@ -35,9 +35,9 @@ func (lf *loggingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	log.Printf("Fetching Directory %s with qualifiers %s", req.Uris, req.Qualifiers)
 	resp, err := lf.fetcher.FetchDirectory(ctx, req)
 	if err == nil {
-		log.Printf("FetchBlob completed for %s with status code %d", req.Uris, resp.Status.GetCode())
+		log.Printf("FetchDirectory completed for %s with status code %d", req.Uris, resp.Status.GetCode())
 	} else {
-		log.Printf("FetchBlob completed for %s with status code %d", req.Uris, status.Code(err))
+		log.Printf("FetchDirectory completed for %s with status code %d", req.Uris, status.Code(err))
 	}
 	return resp, err
 }
