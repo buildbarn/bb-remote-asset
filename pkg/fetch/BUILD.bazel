@@ -23,6 +23,7 @@ go_library(
         "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/util:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@go_googleapis//google/rpc:errdetails_go_proto",
         "@go_googleapis//google/rpc:status_go_proto",

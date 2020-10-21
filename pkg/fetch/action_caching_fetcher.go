@@ -2,31 +2,33 @@ package fetch
 
 import (
 	"context"
-	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-remote-asset/pkg/translator"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type actionCachingFetcher struct {
-	fetcher           Fetcher
-	pusher            remoteasset.PushServer
-	actionCacheClient remoteexecution.ActionCacheClient
-	requestTranslator translator.RequestTranslator
+	fetcher                         Fetcher
+	pusher                          remoteasset.PushServer
+	actionCacheClient               remoteexecution.ActionCacheClient
+	contentAddressableStorageClient remoteexecution.ContentAddressableStorageClient
+	requestTranslator               translator.RequestTranslator
 }
 
 // NewActionCachingFetcher creates a new Fetcher suitable for farming Fetch requests to an Action Cache
 func NewActionCachingFetcher(fetcher Fetcher, pusher remoteasset.PushServer, client grpc.ClientConnInterface) Fetcher {
 	return &actionCachingFetcher{
-		fetcher:           fetcher,
-		pusher:            pusher,
-		actionCacheClient: remoteexecution.NewActionCacheClient(client),
-		requestTranslator: translator.RequestTranslator{},
+		fetcher:                         fetcher,
+		pusher:                          pusher,
+		actionCacheClient:               remoteexecution.NewActionCacheClient(client),
+		contentAddressableStorageClient: remoteexecution.NewContentAddressableStorageClient(client),
+		requestTranslator:               translator.RequestTranslator{},
 	}
 }
 
@@ -40,7 +42,6 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		return nil, err
 	}
 
-	log.Printf("Looking in Action Cache: %v", req.Uris[0])
 	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
 		InstanceName: req.InstanceName,
 		ActionDigest: actionDigest,
@@ -48,7 +49,6 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		InlineStderr: false,
 	})
 	if err == nil {
-		log.Printf("Found in Action Cache: %v", req.Uris[0])
 		blobDigest := translator.EmptyDigest
 		for _, file := range actionResult.OutputFiles {
 			if file.Path != "out" {
@@ -74,7 +74,6 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		Qualifiers:   req.Qualifiers,
 		BlobDigest:   response.BlobDigest,
 	}
-	log.Printf("Pushing to Action Cache: %v", req.Uris[0])
 	_, err = acf.pusher.PushBlob(ctx, pushReq)
 	return response, err
 }
@@ -88,9 +87,7 @@ func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remote
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Fetch URI: %#v, Action Digest: %#v", req.Uris, actionDigest)
 
-	log.Printf("Looking for directory in Action Cache: %v", req.Uris[0])
 	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
 		InstanceName: req.InstanceName,
 		ActionDigest: actionDigest,
@@ -98,13 +95,31 @@ func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remote
 		InlineStderr: false,
 	})
 	if err == nil {
-		log.Printf("Found in Action Cache: %v", req.Uris[0])
 		dirDigest := translator.EmptyDigest
+		treeDigest := translator.EmptyDigest
 		for _, dir := range actionResult.OutputDirectories {
 			if dir.Path != "out" {
 				continue
 			}
-			dirDigest = dir.TreeDigest
+			treeDigest = dir.TreeDigest
+		}
+		if treeDigest != translator.EmptyDigest {
+			readResponse, err := acf.contentAddressableStorageClient.BatchReadBlobs(ctx, &remoteexecution.BatchReadBlobsRequest{
+				InstanceName: req.InstanceName,
+				Digests:      []*remoteexecution.Digest{treeDigest},
+			})
+			if err != nil {
+				return nil, err
+			}
+			tree := &remoteexecution.Tree{}
+			err = proto.Unmarshal(readResponse.Responses[0].Data, tree)
+			if err != nil {
+				return nil, err
+			}
+			dirDigest, err = translator.ProtoToDigest(tree.Root)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		return &remoteasset.FetchDirectoryResponse{
@@ -114,7 +129,6 @@ func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remote
 			RootDirectoryDigest: dirDigest,
 		}, nil
 	}
-	log.Printf("Fetch Error: %v", err)
 	return nil, status.Error(codes.NotFound, "Directory not found in Asset Cache")
 }
 

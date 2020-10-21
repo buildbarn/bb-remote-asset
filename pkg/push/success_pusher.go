@@ -9,7 +9,7 @@ import (
 type successPusher struct{}
 
 // NewSuccessPusher returns a Push Server that does nothing and returns successes
-func NewSuccessPusher() *remoteasset.PushServer {
+func NewSuccessPusher() remoteasset.PushServer {
 	return &successPusher{}
 }
 
