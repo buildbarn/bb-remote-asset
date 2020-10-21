@@ -2,7 +2,6 @@ package push
 
 import (
 	"context"
-	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -83,7 +82,6 @@ func (acp *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.P
 }
 
 func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
-	log.Printf("Request: %v", req)
 	action, command, err := acp.requestTranslator.URIsToAction(req.Uris)
 	if err != nil {
 		return nil, err
@@ -96,7 +94,6 @@ func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteas
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("URI: %#v, Action Digest: %#v", req.Uris, actionDigest)
 
 	commandPb, err := proto.Marshal(&command)
 	if err != nil {
@@ -106,7 +103,20 @@ func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteas
 	if err != nil {
 		return nil, err
 	}
-	actionResult := acp.requestTranslator.PushDirectoryToActionResult(req)
+	tree, err := acp.directoryToTree(ctx, req)
+	treePb, err := proto.Marshal(tree)
+	if err != nil {
+		return nil, err
+	}
+	treeDigest, err := translator.ProtoToDigest(tree)
+	if err != nil {
+		return nil, err
+	}
+
+	actionResult := acp.requestTranslator.PushDirectoryToActionResult(req, treeDigest)
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = acp.contentAddressableStorageClient.BatchUpdateBlobs(ctx, &remoteexecution.BatchUpdateBlobsRequest{
 		InstanceName: req.InstanceName,
@@ -118,6 +128,10 @@ func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteas
 			&remoteexecution.BatchUpdateBlobsRequest_Request{
 				Digest: commandDigest,
 				Data:   commandPb,
+			},
+			&remoteexecution.BatchUpdateBlobsRequest_Request{
+				Digest: treeDigest,
+				Data:   treePb,
 			},
 		},
 	})
@@ -135,4 +149,54 @@ func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteas
 	}
 
 	return acp.pusher.PushDirectory(ctx, req)
+}
+
+func (acp *actionCachingPusher) directoryToTree(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteexecution.Tree, error) {
+	readResponse, err := acp.contentAddressableStorageClient.BatchReadBlobs(ctx, &remoteexecution.BatchReadBlobsRequest{
+		InstanceName: req.InstanceName,
+		Digests:      []*remoteexecution.Digest{req.RootDirectoryDigest}})
+	if err != nil {
+		return nil, err
+	}
+	directory := &remoteexecution.Directory{}
+	err = proto.Unmarshal(readResponse.Responses[0].Data, directory)
+	if err != nil {
+		return nil, err
+	}
+	children := []*remoteexecution.Directory{}
+	for _, node := range directory.Directories {
+		nodeChildren, err := acp.directoryNodeToDirectories(ctx, req.InstanceName, node)
+		if err != nil {
+			return nil, err
+		}
+		children = append(children, nodeChildren...)
+	}
+
+	return &remoteexecution.Tree{
+		Root:     directory,
+		Children: children,
+	}, nil
+}
+
+func (acp *actionCachingPusher) directoryNodeToDirectories(ctx context.Context, instance string, node *remoteexecution.DirectoryNode) ([]*remoteexecution.Directory, error) {
+	readResponse, err := acp.contentAddressableStorageClient.BatchReadBlobs(ctx, &remoteexecution.BatchReadBlobsRequest{
+		InstanceName: instance,
+		Digests:      []*remoteexecution.Digest{node.Digest}})
+	if err != nil {
+		return nil, err
+	}
+	directory := &remoteexecution.Directory{}
+	err = proto.Unmarshal(readResponse.Responses[0].Data, directory)
+	if err != nil {
+		return nil, err
+	}
+	directories := []*remoteexecution.Directory{directory}
+	for _, node := range directory.Directories {
+		children, err := acp.directoryNodeToDirectories(ctx, instance, node)
+		if err != nil {
+			return nil, err
+		}
+		directories = append(directories, children...)
+	}
+	return directories, nil
 }

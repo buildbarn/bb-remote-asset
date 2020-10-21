@@ -56,12 +56,12 @@ func (rt *RequestTranslator) PushBlobToActionResult(req *remoteasset.PushBlobReq
 
 // PushDirectoryToActionResult converts a PushDirectoryRequest into a
 // REAPI ActionResult to be pushed into the Action Cache
-func (rt *RequestTranslator) PushDirectoryToActionResult(req *remoteasset.PushDirectoryRequest) remoteexecution.ActionResult {
+func (rt *RequestTranslator) PushDirectoryToActionResult(req *remoteasset.PushDirectoryRequest, treeDigest *remoteexecution.Digest) remoteexecution.ActionResult {
 	actionResult := remoteexecution.ActionResult{
 		OutputDirectories: []*remoteexecution.OutputDirectory{
 			&remoteexecution.OutputDirectory{
 				Path:       "out",
-				TreeDigest: req.RootDirectoryDigest,
+				TreeDigest: treeDigest,
 			},
 		},
 		ExitCode: 0,
