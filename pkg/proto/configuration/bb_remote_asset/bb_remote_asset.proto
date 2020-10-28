@@ -11,12 +11,12 @@ import "pkg/proto/configuration/bb_remote_asset/push/pusher.proto";
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset";
 
 message ApplicationConfiguration {
-  // Asset store configuration for the Fetch and Push servers
-  buildbarn.configuration.blobstore.BlobAccessConfiguration asset_store = 1;
+  // Reserved for removed Asset Store
+  reserved 1;
 
-  // Address on which to listen to expose the web UI and Prometheus
-  // metrics.
-  string http_listen_address = 2;
+  // Was 'http_listen_address'. This option has been moved to
+  // 'global.diagnostics_http_listen_address'.
+  reserved 2;
 
   // gRPC servers to spawn to listen for remote asset API connections
   repeated buildbarn.configuration.grpc.ServerConfiguration grpc_servers = 3;
@@ -33,9 +33,11 @@ message ApplicationConfiguration {
   repeated string allow_updates_for_instances = 7;
 
   // Configuration for remote asset FetchServer
-  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher =
-      8;
+  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher = 8;
 
   // Configuration for ac based PushServer
   buildbarn.configuration.bb_remote_asset.push.PusherConfiguration pusher = 9;
+
+  buildbarn.configuration.blobstore.BlobstoreConfiguration blobstore =
+  10;
 }

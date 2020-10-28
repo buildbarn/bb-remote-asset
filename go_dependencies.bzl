@@ -4,8 +4,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_buildbarn_bb_storage",
         importpath = "github.com/buildbarn/bb-storage",
-        sum = "h1:XkZNtqFiqfDzn2SYfObEKeGs5JqOIcMniOu/mIXyFYY=",
-        version = "v0.0.0-20200802055539-f0281e269c07",
+        sum = "h1:zhOzsA5cmzydLGXiFpwEippGOnY2n7caoCmKT6y1m2k=",
+        version = "v0.0.0-20200917193456-be1ddb93b029",
     )
     go_repository(
         name = "com_github_bazelbuild_remote_apis",
@@ -281,6 +281,31 @@ def go_dependencies():
         importpath = "github.com/go-logfmt/logfmt",
         sum = "h1:MP4Eh7ZCb31lleYCFuwm0oe4/YGak+5l1vA2NOE80nA=",
         version = "v0.4.0",
+    )
+    go_repository(
+        name = "com_github_dgryski_go_rendezvous",
+        importpath = "github.com/dgryski/go-rendezvous",
+        sum = "h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=",
+        version = "v0.0.0-20200823014737-9f7001d12a5f",
+    )
+    go_repository(
+        name = "com_github_go_redis_redis_v8",
+        importpath = "github.com/go-redis/redis/v8",
+        sum = "h1:PC0VsF9sFFd2sko5bu30aEFc8F1TKl6n65o0b8FnCIE=",
+        version = "v8.0.0",
+    )
+    go_repository(
+        name = "io_opentelemetry_go_otel",
+        build_file_proto_mode = "disable",
+        importpath = "go.opentelemetry.io/otel",
+        sum = "h1:IN2tzQa9Gc4ZVKnTaMbPVcHjvzOdg5n9QfnmlqiET7E=",
+        version = "v0.11.0",
+    )
+    go_repository(
+        name = "com_github_go_redis_redisext",
+        importpath = "github.com/go-redis/redisext",
+        sum = "h1:rgukAuvD0qvfw2CZF9bSEstzBb3WnSgRvHK+hj8Nwp0=",
+        version = "v0.1.7",
     )
     go_repository(
         name = "com_github_go_redis_redis",

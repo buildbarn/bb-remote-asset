@@ -2,21 +2,17 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
-	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
-	"github.com/gorilla/mux"
 
 	"google.golang.org/grpc"
 )
@@ -34,25 +30,36 @@ func main() {
 		log.Fatal("Usage: bb_remote_asset bb_remote_asset.jsonnet")
 	}
 	var config bb_remote_asset.ApplicationConfiguration
+	var lifecycleState *global.LifecycleState
+	var err error
 	if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
 		log.Fatalf("Failed to read configuration from %s: %s", os.Args[1], err)
 	}
-	if err := global.ApplyConfiguration(config.Global); err != nil {
+	if lifecycleState, err = global.ApplyConfiguration(config.Global); err != nil {
 		log.Fatal("Failed to apply global configuration options: ", err)
 	}
 
-	// Initialize CAS storage access
-	grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
-	casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
-
-	assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-		config.AssetStore,
-		assetBlobAccessCreator)
+	// Storage access.
+	contentAddressableStorage, actionCache, err := blobstore_configuration.NewCASAndACBlobAccessFromConfiguration(
+		config.Blobstore,
+		bb_grpc.DefaultClientFactory,
+		int(config.MaximumMessageSizeBytes))
 	if err != nil {
-		log.Fatal("Failed to create blob access: ", err)
+		log.Fatal(err)
 	}
-	assetStore := storage.NewAssetStore(assetBlobAccess, int(config.MaximumMessageSizeBytes))
+
+	// Initialize CAS storage access
+	//grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
+	//casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	//assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
+
+	//assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+	//config.AssetStore,
+	//assetBlobAccessCreator)
+	//if err != nil {
+	//log.Fatal("Failed to create blob access: ", err)
+	//}
+	//assetStore := storage.NewAssetStore(assetBlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
@@ -63,12 +70,12 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	pushServer, err := configuration.NewPusherFromConfiguration(config.Pusher, assetStore, grpcClientFactory)
+	pushServer, err := configuration.NewPusherFromConfiguration(config.Pusher /*assetStore,*/, contentAddressableStorage, actionCache, int(config.MaximumMessageSizeBytes))
 	if err != nil {
 		log.Fatal("Failed to initialize push server from configuration: ", err)
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory, pushServer)
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher /*assetStore,*/, contentAddressableStorage, actionCache, pushServer, int(config.MaximumMessageSizeBytes))
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
@@ -86,8 +93,5 @@ func main() {
 				}))
 	}()
 
-	// Web server for metrics and profiling.
-	router := mux.NewRouter()
-	util.RegisterAdministrativeHTTPEndpoints(router)
-	log.Fatal(http.ListenAndServe(config.HttpListenAddress, router))
+	lifecycleState.MarkReadyAndWait()
 }

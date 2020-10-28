@@ -122,7 +122,7 @@ func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceNam
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Digest Creation failed")), bb_digest.BadDigest
 	}
 
-	return buffer.NewCASBufferFromReader(digest, ioutil.NopCloser(bytes.NewBuffer(body)), buffer.Irreparable), digest
+	return buffer.NewCASBufferFromReader(digest, ioutil.NopCloser(bytes.NewBuffer(body)), buffer.UserProvided), digest
 }
 
 func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, error) {

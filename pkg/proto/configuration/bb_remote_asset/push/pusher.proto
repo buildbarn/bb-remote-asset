@@ -3,21 +3,17 @@ syntax = "proto3";
 package buildbarn.configuration.bb_remote_asset.push;
 
 import "google/rpc/status.proto";
-import "pkg/proto/configuration/blobstore/blobstore.proto";
-import "pkg/proto/configuration/grpc/grpc.proto";
 
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/push";
 
 message PusherConfiguration {
   oneof backend {
-    // Reads and writes to the AssetStore to return cached responses
-    PusherConfiguration caching = 1;
+    // Returns a given error for all requests, can be wrapped by
+    // CachingFetcher for a Push/Fetch service without any server side
+    // downloads.
 
-    // Returns a given error for all requests, can be wrapped by CachingFetcher
-    // for a Push/Fetch service without any server side downloads.
-    //
-    // Note that in jsonnet configuration, 'error' will need to be in quotes to
-    // avoid collision with a protected keyword
+    // Note that in jsonnet configuration, 'error' will need to be in
+    // quotes to avoid collision with a protected keyword
     google.rpc.Status error = 2;
 
     // Uses an Action Cache as the storage backend, translating Fetch requests into
@@ -25,11 +21,16 @@ message PusherConfiguration {
     ActionCachingPusherConfiguration action_cache = 3;
   }
 
+  // Was configuration for AssetStore caching pusher
+  reserved 1;
+
   message ActionCachingPusherConfiguration {
     // Additional pusher to use
     PusherConfiguration pusher = 1;
 
-    // gRPC configuration for the remote AC
-    buildbarn.configuration.grpc.ClientConfiguration action_cache = 2;
+    // Was client configuration for Action Cache, Action Cache is now
+    // defined in `blobstore` within bb_remote_asset
+    // ApplicationConfiguration
+    reserved 2;
   }
 }

@@ -7,28 +7,30 @@ import (
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-remote-asset/pkg/translator"
-	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc"
+	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/digest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type actionCachingFetcher struct {
-	fetcher                         Fetcher
-	pusher                          remoteasset.PushServer
-	actionCacheClient               remoteexecution.ActionCacheClient
-	contentAddressableStorageClient remoteexecution.ContentAddressableStorageClient
-	requestTranslator               translator.RequestTranslator
+	fetcher                   Fetcher
+	pusher                    remoteasset.PushServer
+	actionCache               blobstore.BlobAccess
+	contentAddressableStorage blobstore.BlobAccess
+	requestTranslator         translator.RequestTranslator
+	maximumSizeBytes          int
 }
 
 // NewActionCachingFetcher creates a new Fetcher suitable for farming Fetch requests to an Action Cache
-func NewActionCachingFetcher(fetcher Fetcher, pusher remoteasset.PushServer, client grpc.ClientConnInterface) Fetcher {
+func NewActionCachingFetcher(fetcher Fetcher, pusher remoteasset.PushServer, actionCache, contentAddressableStorage blobstore.BlobAccess, maximumSizeBytes int) Fetcher {
 	return &actionCachingFetcher{
-		fetcher:                         fetcher,
-		pusher:                          pusher,
-		actionCacheClient:               remoteexecution.NewActionCacheClient(client),
-		contentAddressableStorageClient: remoteexecution.NewContentAddressableStorageClient(client),
-		requestTranslator:               translator.RequestTranslator{},
+		fetcher:                   fetcher,
+		pusher:                    pusher,
+		actionCache:               actionCache,
+		contentAddressableStorage: contentAddressableStorage,
+		requestTranslator:         translator.RequestTranslator{},
+		maximumSizeBytes:          maximumSizeBytes,
 	}
 }
 
@@ -42,15 +44,21 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		return nil, err
 	}
 
-	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
-		InstanceName: req.InstanceName,
-		ActionDigest: actionDigest,
-		InlineStdout: false,
-		InlineStderr: false,
-	})
+	//actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
+	//InstanceName: req.InstanceName,
+	//ActionDigest: actionDigest,
+	//InlineStdout: false,
+	//InlineStderr: false,
+	//})
+	instanceName, err := digest.NewInstanceName(req.InstanceName)
+	if err != nil {
+		return nil, err
+	}
+	digest, err := instanceName.NewDigestFromProto(actionDigest)
+	actionResult, err := acf.actionCache.Get(ctx, digest).ToProto(&remoteexecution.ActionResult{}, acf.maximumSizeBytes)
 	if err == nil {
 		blobDigest := translator.EmptyDigest
-		for _, file := range actionResult.OutputFiles {
+		for _, file := range actionResult.(*remoteexecution.ActionResult).OutputFiles {
 			if file.Path != "out" {
 				continue
 			}
@@ -88,35 +96,38 @@ func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remote
 		return nil, err
 	}
 
-	actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
-		InstanceName: req.InstanceName,
-		ActionDigest: actionDigest,
-		InlineStdout: false,
-		InlineStderr: false,
-	})
+	//actionResult, err := acf.actionCacheClient.GetActionResult(ctx, &remoteexecution.GetActionResultRequest{
+	//InstanceName: req.InstanceName,
+	//ActionDigest: actionDigest,
+	//InlineStdout: false,
+	//InlineStderr: false,
+	//})
+	instanceName, err := digest.NewInstanceName(req.InstanceName)
+	if err != nil {
+		return nil, err
+	}
+	digest, err := instanceName.NewDigestFromProto(actionDigest)
+	actionResult, err := acf.actionCache.Get(ctx, digest).ToProto(&remoteexecution.ActionResult{}, acf.maximumSizeBytes)
 	if err == nil {
 		dirDigest := translator.EmptyDigest
 		treeDigest := translator.EmptyDigest
-		for _, dir := range actionResult.OutputDirectories {
+		for _, dir := range actionResult.(*remoteexecution.ActionResult).OutputDirectories {
 			if dir.Path != "out" {
 				continue
 			}
 			treeDigest = dir.TreeDigest
 		}
 		if treeDigest != translator.EmptyDigest {
-			readResponse, err := acf.contentAddressableStorageClient.BatchReadBlobs(ctx, &remoteexecution.BatchReadBlobsRequest{
-				InstanceName: req.InstanceName,
-				Digests:      []*remoteexecution.Digest{treeDigest},
-			})
+			digest, err := instanceName.NewDigestFromProto(treeDigest)
 			if err != nil {
 				return nil, err
 			}
-			tree := &remoteexecution.Tree{}
-			err = proto.Unmarshal(readResponse.Responses[0].Data, tree)
+			tree, err := acf.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Tree{}, acf.maximumSizeBytes)
 			if err != nil {
 				return nil, err
 			}
-			dirDigest, err = translator.ProtoToDigest(tree.Root)
+			root := tree.(*remoteexecution.Tree).Root
+			dirDigest, err = translator.ProtoToDigest(root)
 			if err != nil {
 				return nil, err
 			}

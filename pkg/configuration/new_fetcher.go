@@ -7,31 +7,20 @@ import (
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
-	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
-	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// NewFetcherFromConfiguration creates a new Remote Asset API Fetch server from
-// a jsonnet configuration.
+// NewFetcherFromConfiguration creates a new Remote Asset API Fetch
+// server from a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
-	assetStore *storage.AssetStore,
-	casBlobAccessCreator blobstore_configuration.BlobAccessCreator,
-	grpcClientFactory bb_grpc.ClientFactory, pushServer remoteasset.PushServer) (fetch.Fetcher, error) {
+	contentAddressableStorage, actionCache blobstore.BlobAccess,
+	pushServer remoteasset.PushServer, maximumSizeBytes int) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
-	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching, assetStore, casBlobAccessCreator, grpcClientFactory, pushServer)
-		if err != nil {
-			return nil, err
-		}
-		fetcher = fetch.NewLocalCachingFetcher(
-			innerFetcher,
-			assetStore)
 	case *pb.FetcherConfiguration_Http:
 		// TODO: Shift into utils lib as also used in main.go
 		allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
@@ -42,28 +31,18 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			}
 			allowUpdatesForInstances[instanceName] = true
 		}
-		cas, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-			backend.Http.ContentAddressableStorage,
-			casBlobAccessCreator)
-		if err != nil {
-			return nil, err
-		}
 		fetcher = fetch.NewHTTPFetcher(
 			http.DefaultClient,
-			cas,
+			contentAddressableStorage,
 			allowUpdatesForInstances)
 	case *pb.FetcherConfiguration_Error:
 		fetcher = fetch.NewErrorFetcher(backend.Error)
 	case *pb.FetcherConfiguration_ActionCache:
-		client, err := grpcClientFactory.NewClientFromConfiguration(backend.ActionCache.ActionCache)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.ActionCache.Fetcher, contentAddressableStorage, actionCache, pushServer, maximumSizeBytes)
 		if err != nil {
 			return nil, err
 		}
-		innerFetcher, err := NewFetcherFromConfiguration(backend.ActionCache.Fetcher, assetStore, casBlobAccessCreator, grpcClientFactory, pushServer)
-		if err != nil {
-			return nil, err
-		}
-		fetcher = fetch.NewActionCachingFetcher(innerFetcher, pushServer, client)
+		fetcher = fetch.NewActionCachingFetcher(innerFetcher, pushServer, actionCache, contentAddressableStorage, maximumSizeBytes)
 
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
