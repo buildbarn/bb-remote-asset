@@ -16,7 +16,6 @@ go_proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:go_default_library",
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:go_default_library",
         "@go_googleapis//google/rpc:status_go_proto",
     ],
 )
@@ -27,7 +26,6 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
         "@go_googleapis//google/rpc:status_proto",
     ],
 )

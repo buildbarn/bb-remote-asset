@@ -33,11 +33,11 @@ message ApplicationConfiguration {
   repeated string allow_updates_for_instances = 7;
 
   // Configuration for remote asset FetchServer
-  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher = 8;
+  buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher =
+      8;
 
   // Configuration for ac based PushServer
   buildbarn.configuration.bb_remote_asset.push.PusherConfiguration pusher = 9;
 
-  buildbarn.configuration.blobstore.BlobstoreConfiguration blobstore =
-  10;
+  buildbarn.configuration.blobstore.BlobstoreConfiguration blobstore = 10;
 }

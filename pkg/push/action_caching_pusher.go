@@ -112,6 +112,9 @@ func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteas
 		return nil, err
 	}
 	tree, err := acp.directoryToTree(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 	treePb, err := proto.Marshal(tree)
 	if err != nil {
 		return nil, err

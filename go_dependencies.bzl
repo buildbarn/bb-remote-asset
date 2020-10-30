@@ -282,37 +282,7 @@ def go_dependencies():
         sum = "h1:MP4Eh7ZCb31lleYCFuwm0oe4/YGak+5l1vA2NOE80nA=",
         version = "v0.4.0",
     )
-    go_repository(
-        name = "com_github_dgryski_go_rendezvous",
-        importpath = "github.com/dgryski/go-rendezvous",
-        sum = "h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=",
-        version = "v0.0.0-20200823014737-9f7001d12a5f",
-    )
-    go_repository(
-        name = "com_github_go_redis_redis_v8",
-        importpath = "github.com/go-redis/redis/v8",
-        sum = "h1:PC0VsF9sFFd2sko5bu30aEFc8F1TKl6n65o0b8FnCIE=",
-        version = "v8.0.0",
-    )
-    go_repository(
-        name = "io_opentelemetry_go_otel",
-        build_file_proto_mode = "disable",
-        importpath = "go.opentelemetry.io/otel",
-        sum = "h1:IN2tzQa9Gc4ZVKnTaMbPVcHjvzOdg5n9QfnmlqiET7E=",
-        version = "v0.11.0",
-    )
-    go_repository(
-        name = "com_github_go_redis_redisext",
-        importpath = "github.com/go-redis/redisext",
-        sum = "h1:rgukAuvD0qvfw2CZF9bSEstzBb3WnSgRvHK+hj8Nwp0=",
-        version = "v0.1.7",
-    )
-    go_repository(
-        name = "com_github_go_redis_redis",
-        importpath = "github.com/go-redis/redis",
-        sum = "h1:BKZuG6mCnRj5AOaWJXoCgf6rqTYnYJLe4en2hxT7r9o=",
-        version = "v6.15.8+incompatible",
-    )
+
     go_repository(
         name = "com_github_go_sql_driver_mysql",
         importpath = "github.com/go-sql-driver/mysql",
@@ -364,8 +334,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_google_go_cmp",
         importpath = "github.com/google/go-cmp",
-        sum = "h1:/exdXoGamhu5ONeUJH0deniYLWYvQwW66yvlfiiKTu0=",
-        version = "v0.4.1",
+        sum = "h1:JFrFEBb2xKufg6XkJsJr+WbKb4FQlURi5RUcBveYu9k=",
+        version = "v0.5.1",
     )
     go_repository(
         name = "com_github_google_go_jsonnet",
@@ -623,14 +593,14 @@ def go_dependencies():
     go_repository(
         name = "com_github_onsi_ginkgo",
         importpath = "github.com/onsi/ginkgo",
-        sum = "h1:2mOpI4JVVPBN+WQRa0WKH2eXR+Ey+uK4n7Zj0aYpIQA=",
-        version = "v1.14.0",
+        sum = "h1:jMU0WaQrP0a/YAEq8eJmJKjBoMs+pClEr1vDMlM/Do4=",
+        version = "v1.14.1",
     )
     go_repository(
         name = "com_github_onsi_gomega",
         importpath = "github.com/onsi/gomega",
-        sum = "h1:o0+MgICZLuZ7xjH7Vx6zS/zcu93/BEp1VwkIW1mEXCE=",
-        version = "v1.10.1",
+        sum = "h1:aY/nuoWlKJud2J6U0E3NWsjlg+0GtwXxgEqthRdzlcs=",
+        version = "v1.10.2",
     )
     go_repository(
         name = "com_github_opentracing_opentracing_go",
@@ -930,8 +900,8 @@ def go_dependencies():
     go_repository(
         name = "org_golang_x_exp",
         importpath = "golang.org/x/exp",
-        sum = "h1:QE6XYQK6naiK1EPAe1g/ILLxN5RBoH5xkJk3CqlMI/Y=",
-        version = "v0.0.0-20200224162631-6cc2880d07d6",
+        sum = "h1:5XVKs2rlCg8EFyRcvO8/XFwYxh1oKJO1Q3X5vttIf9c=",
+        version = "v0.0.0-20200908183739-ae8ad444f925",
     )
     go_repository(
         name = "org_golang_x_image",
@@ -954,8 +924,8 @@ def go_dependencies():
     go_repository(
         name = "org_golang_x_mod",
         importpath = "golang.org/x/mod",
-        sum = "h1:RM4zey1++hCTbCVQfnWeKs9/IEsaBLA8vTkd0WVtmH4=",
-        version = "v0.3.0",
+        sum = "h1:xUIPaMhvROX9dhPvRCenIJtU78+lbEenGbgqB5hfHCQ=",
+        version = "v0.3.1-0.20200828183125-ce943fd02449",
     )
     go_repository(
         name = "org_golang_x_net",
@@ -1004,4 +974,41 @@ def go_dependencies():
         importpath = "golang.org/x/xerrors",
         sum = "h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=",
         version = "v0.0.0-20191204190536-9bdfabe68543",
+    )
+    go_repository(
+        name = "com_github_benbjohnson_clock",
+        importpath = "github.com/benbjohnson/clock",
+        sum = "h1:vkLuvpK4fmtSCuo60+yC63p7y0BmQ8gm5ZXGuBCJyXg=",
+        version = "v1.0.3",
+    )
+    go_repository(
+        name = "com_github_datadog_sketches_go",
+        importpath = "github.com/DataDog/sketches-go",
+        sum = "h1:qELHH0AWCvf98Yf+CNIJx9vOZOfHFDDzgDRYsnNk/vs=",
+        version = "v0.0.0-20190923095040-43f19ad77ff7",
+    )
+    go_repository(
+        name = "com_github_dgryski_go_rendezvous",
+        importpath = "github.com/dgryski/go-rendezvous",
+        sum = "h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=",
+        version = "v0.0.0-20200823014737-9f7001d12a5f",
+    )
+    go_repository(
+        name = "com_github_go_redis_redis_v8",
+        importpath = "github.com/go-redis/redis/v8",
+        sum = "h1:PC0VsF9sFFd2sko5bu30aEFc8F1TKl6n65o0b8FnCIE=",
+        version = "v8.0.0",
+    )
+    go_repository(
+        name = "com_github_go_redis_redisext",
+        importpath = "github.com/go-redis/redisext",
+        sum = "h1:rgukAuvD0qvfw2CZF9bSEstzBb3WnSgRvHK+hj8Nwp0=",
+        version = "v0.1.7",
+    )
+    go_repository(
+        name = "io_opentelemetry_go_otel",
+        build_file_proto_mode = "disable",
+        importpath = "go.opentelemetry.io/otel",
+        sum = "h1:IN2tzQa9Gc4ZVKnTaMbPVcHjvzOdg5n9QfnmlqiET7E=",
+        version = "v0.11.0",
     )

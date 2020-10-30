@@ -16,8 +16,9 @@ message PusherConfiguration {
     // quotes to avoid collision with a protected keyword
     google.rpc.Status error = 2;
 
-    // Uses an Action Cache as the storage backend, translating Fetch requests into
-    // GetActionResult requests. Should be used with a complementary Push server.
+    // Uses an Action Cache as the storage backend, translating Fetch requests
+    // into GetActionResult requests. Should be used with a complementary Push
+    // server.
     ActionCachingPusherConfiguration action_cache = 3;
   }
 

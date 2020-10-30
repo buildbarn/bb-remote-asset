@@ -43,7 +43,7 @@ func (rt *RequestTranslator) URIsToAction(uris []string) (remoteexecution.Action
 func (rt *RequestTranslator) PushBlobToActionResult(req *remoteasset.PushBlobRequest) remoteexecution.ActionResult {
 	actionResult := remoteexecution.ActionResult{
 		OutputFiles: []*remoteexecution.OutputFile{
-			&remoteexecution.OutputFile{
+			{
 				Path:   "out",
 				Digest: req.BlobDigest,
 			},
@@ -59,7 +59,7 @@ func (rt *RequestTranslator) PushBlobToActionResult(req *remoteasset.PushBlobReq
 func (rt *RequestTranslator) PushDirectoryToActionResult(req *remoteasset.PushDirectoryRequest, treeDigest *remoteexecution.Digest) remoteexecution.ActionResult {
 	actionResult := remoteexecution.ActionResult{
 		OutputDirectories: []*remoteexecution.OutputDirectory{
-			&remoteexecution.OutputDirectory{
+			{
 				Path:       "out",
 				TreeDigest: treeDigest,
 			},

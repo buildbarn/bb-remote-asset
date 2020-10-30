@@ -55,6 +55,9 @@ func (acf *actionCachingFetcher) FetchBlob(ctx context.Context, req *remoteasset
 		return nil, err
 	}
 	digest, err := instanceName.NewDigestFromProto(actionDigest)
+	if err != nil {
+		return nil, err
+	}
 	actionResult, err := acf.actionCache.Get(ctx, digest).ToProto(&remoteexecution.ActionResult{}, acf.maximumSizeBytes)
 	if err == nil {
 		blobDigest := translator.EmptyDigest
@@ -107,6 +110,9 @@ func (acf *actionCachingFetcher) FetchDirectory(ctx context.Context, req *remote
 		return nil, err
 	}
 	digest, err := instanceName.NewDigestFromProto(actionDigest)
+	if err != nil {
+		return nil, err
+	}
 	actionResult, err := acf.actionCache.Get(ctx, digest).ToProto(&remoteexecution.ActionResult{}, acf.maximumSizeBytes)
 	if err == nil {
 		dirDigest := translator.EmptyDigest
