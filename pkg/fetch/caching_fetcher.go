@@ -18,12 +18,12 @@ import (
 
 type cachingFetcher struct {
 	fetcher    remoteasset.FetchServer
-	assetStore *storage.AssetStore
+	assetStore storage.AssetStore
 }
 
 // NewCachingFetcher creates a decorator for remoteasset.FetchServer implementations to avoid having to fetch the
 // blob remotely multiple times
-func NewCachingFetcher(fetcher remoteasset.FetchServer, assetStore *storage.AssetStore) remoteasset.FetchServer {
+func NewCachingFetcher(fetcher remoteasset.FetchServer, assetStore storage.AssetStore) remoteasset.FetchServer {
 	return &cachingFetcher{
 		fetcher:    fetcher,
 		assetStore: assetStore,
