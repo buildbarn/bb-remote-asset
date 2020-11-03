@@ -19,7 +19,7 @@ import (
 // NewFetcherFromConfiguration creates a new Remote Asset API Fetch server from
 // a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
-	assetStore *storage.AssetStore,
+	assetStore storage.AssetStore,
 	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (remoteasset.FetchServer, error) {
 	var fetcher remoteasset.FetchServer
 	switch backend := configuration.Backend.(type) {

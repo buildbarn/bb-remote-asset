@@ -12,13 +12,13 @@ import (
 )
 
 type assetPushServer struct {
-	assetStore               *storage.AssetStore
+	assetStore               storage.AssetStore
 	allowUpdatesForInstances map[digest.InstanceName]bool
 }
 
 // NewAssetPushServer creates a gRPC service for serving the contents
 // of a Remote Asset Push server.
-func NewAssetPushServer(AssetStore *storage.AssetStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.PushServer {
+func NewAssetPushServer(AssetStore storage.AssetStore, allowUpdatesForInstances map[digest.InstanceName]bool) remoteasset.PushServer {
 	return &assetPushServer{
 		assetStore:               AssetStore,
 		allowUpdatesForInstances: allowUpdatesForInstances,
