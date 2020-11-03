@@ -98,6 +98,8 @@ github.com/bazelbuild/remote-apis v0.0.0-20200730154707-006a399149dd h1:8iR9Arvx
 github.com/bazelbuild/remote-apis v0.0.0-20200730154707-006a399149dd/go.mod h1:9Y+1FnaNUGVV6wKE0Jdh+mguqDUsyd9uUqokalrC7DQ=
 github.com/bazelbuild/remote-apis v0.0.0-20200812111343-5a7b1a472165 h1:2Wwz88RKomXNpY/Sqh0irk+lrQYhjJVR5lQvQc9PStQ=
 github.com/bazelbuild/remote-apis v0.0.0-20200904140912-1aeb39973178 h1:qDZ7lr7knlTckZgbKwWD1PHTY6WYe5V+DqILuzpMHPY=
+github.com/bazelbuild/remote-apis v0.0.0-20201030192148-aa8e718768c2 h1:in8ww8rHwdcmLN3J9atiRDvAaYHobXBJzp7uAxlUREU=
+github.com/bazelbuild/remote-apis v0.0.0-20201030192148-aa8e718768c2/go.mod h1:9Y+1FnaNUGVV6wKE0Jdh+mguqDUsyd9uUqokalrC7DQ=
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
@@ -111,6 +113,8 @@ github.com/buildbarn/bb-storage v0.0.0-20200904173922-e3f0e5923b26 h1:GoVdCfSkVV
 github.com/buildbarn/bb-storage v0.0.0-20200912190538-89343bc68162 h1:hs2M70qG75rxzsfnmhLT79kJq5niKrVgUlSeOSt2s8I=
 github.com/buildbarn/bb-storage v0.0.0-20200917193456-be1ddb93b029 h1:zhOzsA5cmzydLGXiFpwEippGOnY2n7caoCmKT6y1m2k=
 github.com/buildbarn/bb-storage v0.0.0-20200917193456-be1ddb93b029/go.mod h1:SERa46ZAAywJwCGZ6cBUxEP8VsxjIGhq5N+WsBQuOPc=
+github.com/buildbarn/bb-storage v0.0.0-20201030194121-a89a02790e5a h1:bLCzkRbH2Uz+3gAaAF7Okll7JPWzB+YaoK201RqoPDI=
+github.com/buildbarn/bb-storage v0.0.0-20201030194121-a89a02790e5a/go.mod h1:OacyIpoPMT5t2zdqnxrf/FhXgshrixyqtF9CdFz0uIc=
 github.com/census-instrumentation/opencensus-proto v0.2.0/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/census-instrumentation/opencensus-proto v0.2.1 h1:glEXhBS5PSLLv4IXzLA5yPRVX4bilULVyxxbrfOtDAk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

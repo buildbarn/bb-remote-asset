@@ -80,7 +80,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 }
 
 func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	return nil, status.Errorf(codes.PermissionDenied, "HTTP Fetching of directories is not supported!")
+	return nil, status.Errorf(codes.Unimplemented, "HTTP Fetching of directories is not supported!")
 }
 
 func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {

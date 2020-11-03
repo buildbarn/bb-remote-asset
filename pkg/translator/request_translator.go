@@ -3,6 +3,7 @@ package translator
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"sort"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -21,17 +22,18 @@ type RequestTranslator struct {
 
 // URIsToAction converts the URIs from a Push{Blob,Directory}Request
 // into a REAPI Action
-func (rt *RequestTranslator) URIsToAction(uris []string) (remoteexecution.Action, remoteexecution.Command, error) {
-	command := remoteexecution.Command{
-		Arguments:   []string{"curl", "-o", "out", uris[0]},
+func (rt *RequestTranslator) URIsToAction(uris []string) (*remoteexecution.Action, *remoteexecution.Command, error) {
+	sort.Strings(uris)
+	command := &remoteexecution.Command{
+		Arguments:   uris,
 		OutputPaths: []string{"out"},
 	}
-	commandDigest, err := ProtoToDigest(&command)
+	commandDigest, err := ProtoToDigest(command)
 	if err != nil {
-		return remoteexecution.Action{}, remoteexecution.Command{}, err
+		return &remoteexecution.Action{}, &remoteexecution.Command{}, err
 	}
 
-	action := remoteexecution.Action{
+	action := &remoteexecution.Action{
 		CommandDigest:   commandDigest,
 		InputRootDigest: EmptyDigest,
 	}

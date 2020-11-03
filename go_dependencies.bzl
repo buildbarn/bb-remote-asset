@@ -4,18 +4,17 @@ def go_dependencies():
     go_repository(
         name = "com_github_buildbarn_bb_storage",
         importpath = "github.com/buildbarn/bb-storage",
-        sum = "h1:zhOzsA5cmzydLGXiFpwEippGOnY2n7caoCmKT6y1m2k=",
-        version = "v0.0.0-20200917193456-be1ddb93b029",
+        sum = "h1:bLCzkRbH2Uz+3gAaAF7Okll7JPWzB+YaoK201RqoPDI=",
+        version = "v0.0.0-20201030194121-a89a02790e5a",
     )
     go_repository(
         name = "com_github_bazelbuild_remote_apis",
         importpath = "github.com/bazelbuild/remote-apis",
         patches = [
-            "@com_github_buildbarn_bb_storage//:patches/com_github_bazelbuild_remote_apis/auxiliary_metadata.diff",
             "@com_github_buildbarn_bb_storage//:patches/com_github_bazelbuild_remote_apis/golang.diff",
         ],
-        sum = "h1:8iR9Arvx61MqXD9xg4byPvK5O9cIsqDlgp9tSHqIRwY=",
-        version = "v0.0.0-20200730154707-006a399149dd",
+        sum = "h1:in8ww8rHwdcmLN3J9atiRDvAaYHobXBJzp7uAxlUREU=",
+        version = "v0.0.0-20201030192148-aa8e718768c2",
     )
     go_repository(
         name = "co_honnef_go_tools",

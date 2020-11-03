@@ -107,5 +107,5 @@ func TestHTTPFetcherFetchDirectory(t *testing.T) {
 	HTTPFetcher := fetch.NewHTTPFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
 	_, err = HTTPFetcher.FetchDirectory(ctx, request)
 	require.NotNil(t, err)
-	require.Equal(t, status.Code(err), codes.PermissionDenied)
+	require.Equal(t, status.Code(err), codes.Unimplemented)
 }

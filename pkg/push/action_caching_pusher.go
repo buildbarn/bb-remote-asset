@@ -36,20 +36,20 @@ func (acp *actionCachingPusher) PushBlob(ctx context.Context, req *remoteasset.P
 	if err != nil {
 		return nil, err
 	}
-	actionPb, err := proto.Marshal(&action)
+	actionPb, err := proto.Marshal(action)
 	if err != nil {
 		return nil, err
 	}
-	actionDigest, err := translator.ProtoToDigest(&action)
+	actionDigest, err := translator.ProtoToDigest(action)
 	if err != nil {
 		return nil, err
 	}
 
-	commandPb, err := proto.Marshal(&command)
+	commandPb, err := proto.Marshal(command)
 	if err != nil {
 		return nil, err
 	}
-	commandDigest, err := translator.ProtoToDigest(&command)
+	commandDigest, err := translator.ProtoToDigest(command)
 	if err != nil {
 		return nil, err
 	}
@@ -94,20 +94,19 @@ func (acp *actionCachingPusher) PushDirectory(ctx context.Context, req *remoteas
 	if err != nil {
 		return nil, err
 	}
-	actionPb, err := proto.Marshal(&action)
+	actionPb, err := proto.Marshal(action)
 	if err != nil {
 		return nil, err
 	}
-	actionDigest, err := translator.ProtoToDigest(&action)
+	actionDigest, err := translator.ProtoToDigest(action)
 	if err != nil {
 		return nil, err
 	}
-
-	commandPb, err := proto.Marshal(&command)
+	commandPb, err := proto.Marshal(command)
 	if err != nil {
 		return nil, err
 	}
-	commandDigest, err := translator.ProtoToDigest(&command)
+	commandDigest, err := translator.ProtoToDigest(command)
 	if err != nil {
 		return nil, err
 	}
