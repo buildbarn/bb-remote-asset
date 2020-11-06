@@ -16,7 +16,7 @@ func (brc assetBlobReplicatorCreator) GetDigestKeyFormat() digest.KeyFormat {
 	return digest.KeyWithInstance
 }
 
-func (brc assetBlobReplicatorCreator) NewCustomBlobReplicator(configuration *pb.BlobReplicatorConfiguration, source blobstore.BlobAccess, sink blobstore.BlobAccess) (replication.BlobReplicator, error) {
+func (brc assetBlobReplicatorCreator) NewCustomBlobReplicator(configuration *pb.BlobReplicatorConfiguration, source blobstore.BlobAccess, sink configuration.BlobAccessInfo) (replication.BlobReplicator, error) {
 	return nil, status.Error(codes.InvalidArgument, "Configuration did not contain a supported replicator")
 }
 

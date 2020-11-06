@@ -16,11 +16,12 @@ message FetcherConfiguration {
     // REv2 ReadBlobs requests.
     HttpFetcherConfiguration http = 2;
 
-    // Returns a given error for all requests, can be wrapped by CachingFetcher
-    // for a Push/Fetch service without any server side downloads.
+    // Returns a given error for all requests, can be wrapped by
+    // CachingFetcher for a Push/Fetch service without any server side
+    // downloads.
     //
-    // Note that in jsonnet configuration, 'error' will need to be in quotes to
-    // avoid collision with a protected keyword
+    // Note that in jsonnet configuration, 'error' will need to be in
+    // quotes to avoid collision with a protected keyword
     google.rpc.Status error = 3;
   }
 
