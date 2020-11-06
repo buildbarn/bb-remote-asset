@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
-	"github.com/gorilla/mux"
 
 	"google.golang.org/grpc"
 )
@@ -36,15 +34,17 @@ func main() {
 		log.Fatal("Usage: bb_remote_asset bb_remote_asset.jsonnet")
 	}
 	var config bb_remote_asset.ApplicationConfiguration
+	var err error
 	if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
 		log.Fatalf("Failed to read configuration from %s: %s", os.Args[1], err)
 	}
-	if err := global.ApplyConfiguration(config.Global); err != nil {
+	lifecycleState, err := global.ApplyConfiguration(config.Global)
+	if err != nil {
 		log.Fatal("Failed to apply global configuration options: ", err)
 	}
 
 	// Initialize CAS storage access
-	grpcClientFactory := bb_grpc.NewDeduplicatingClientFactory(bb_grpc.BaseClientFactory)
+	grpcClientFactory := bb_grpc.DefaultClientFactory
 	casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
 
@@ -54,7 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
 	}
-	assetStore := storage.NewAssetStore(assetBlobAccess, int(config.MaximumMessageSizeBytes))
+	assetStore := storage.NewAssetStore(assetBlobAccess.BlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
@@ -88,8 +88,5 @@ func main() {
 				}))
 	}()
 
-	// Web server for metrics and profiling.
-	router := mux.NewRouter()
-	util.RegisterAdministrativeHTTPEndpoints(router)
-	log.Fatal(http.ListenAndServe(config.HttpListenAddress, router))
+	lifecycleState.MarkReadyAndWait()
 }

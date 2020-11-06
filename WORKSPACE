@@ -44,6 +44,17 @@ http_archive(
     ],
 )
 
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+
+go_rules_dependencies()
+
+go_register_toolchains()
+
+# gazelle:repository_macro go_dependencies.bzl%go_dependencies
+load("//:go_dependencies.bzl", "go_dependencies")
+
+go_dependencies()
+
 load(
     "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
@@ -59,20 +70,9 @@ load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", container_pip_
 
 container_pip_deps()
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-
-go_rules_dependencies()
-
-go_register_toolchains()
-
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 
 gazelle_dependencies()
-
-# gazelle:repository_macro go_dependencies.bzl%go_dependencies
-load("//:go_dependencies.bzl", "go_dependencies")
-
-go_dependencies()
 
 load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
 

@@ -17,8 +17,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// NewFetcherFromConfiguration creates a new Remote Asset API Fetch server from
-// a jsonnet configuration.
+// NewFetcherFromConfiguration creates a new Remote Asset API Fetch
+// server from a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
 	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (remoteasset.FetchServer, error) {
@@ -50,7 +50,7 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		}
 		fetcher = fetch.NewHTTPFetcher(
 			http.DefaultClient,
-			cas,
+			cas.BlobAccess,
 			allowUpdatesForInstances)
 	case *pb.FetcherConfiguration_Error:
 		fetcher = fetch.NewErrorFetcher(backend.Error)
