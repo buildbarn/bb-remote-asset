@@ -54,7 +54,7 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			return nil
 		})
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	response, err := pushServer.PushBlob(ctx, request)
@@ -93,7 +93,7 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 			require.True(t, proto.Equal(a.Digest, rootDirectoryDigest))
 			return nil
 		})
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	response, err := pushServer.PushDirectory(ctx, request)
@@ -115,7 +115,7 @@ func TestPushServerInvalidArgumentFailure(t *testing.T) {
 	}
 
 	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	_, err = pushServer.PushBlob(ctx, blobRequest)
@@ -148,7 +148,7 @@ func TestPushServerBadInstanceName(t *testing.T) {
 	}
 
 	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	_, err = pushServer.PushBlob(ctx, blobRequest)

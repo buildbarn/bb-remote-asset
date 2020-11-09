@@ -39,7 +39,7 @@ func TestFetchBlobCaching(t *testing.T) {
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
@@ -94,7 +94,7 @@ func TestFetchDirectoryCaching(t *testing.T) {
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
@@ -157,7 +157,7 @@ func TestCachingFetcherExpiry(t *testing.T) {
 		LastUpdated: ptypes.TimestampNow(),
 	}, buffer.UserProvided)
 	backend.EXPECT().Get(ctx, refDigest).Return(buf)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	baseFetcher := fetch.NewErrorFetcher(&protostatus.Status{
 		Code:    5,
 		Message: "Not found",
@@ -194,7 +194,7 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 		LastUpdated: ts,
 	}, buffer.UserProvided)
 	backend.EXPECT().Get(ctx, refDigest).Return(buf)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	baseFetcher := fetch.NewErrorFetcher(&protostatus.Status{
 		Code:    5,
 		Message: "Not found",

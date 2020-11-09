@@ -39,7 +39,7 @@ func TestAssetStorePut(t *testing.T) {
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			return nil
 		})
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 
 	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestAssetStoreGet(t *testing.T) {
 
 	backend := mock.NewMockBlobAccess(ctrl)
 	backend.EXPECT().Get(ctx, refDigest).Return(buf)
-	assetStore := storage.NewAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 
 	_, err = assetStore.Get(ctx, assetRef, instanceName)
 	require.NoError(t, err)
