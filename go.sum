@@ -106,6 +106,7 @@ github.com/buildbarn/bb-storage v0.0.0-20201030194121-a89a02790e5a h1:bLCzkRbH2U
 github.com/buildbarn/bb-storage v0.0.0-20201030194121-a89a02790e5a/go.mod h1:OacyIpoPMT5t2zdqnxrf/FhXgshrixyqtF9CdFz0uIc=
 github.com/buildbarn/bb-storage v0.0.0-20201104092644-c346ca331930 h1:f19huScWizGx+WRbCA51gaqKD59JBP78qQIGCSgik4k=
 github.com/buildbarn/bb-storage v0.0.0-20201104092644-c346ca331930/go.mod h1:qBYv0gmDMSubxaOMsaKDCbBvUhu4Rj6ZoOkU1X/12h8=
+github.com/buildbarn/bb-storage v0.0.0-20201111150919-9ba4a525aa1f h1:g/gBNZIu8gR6mdcv018XrFnXkGF5TJv7NaLCQGReJMs=
 github.com/census-instrumentation/opencensus-proto v0.2.0/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/census-instrumentation/opencensus-proto v0.2.1 h1:glEXhBS5PSLLv4IXzLA5yPRVX4bilULVyxxbrfOtDAk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -413,6 +414,7 @@ golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a h1:WXEvlFVvvGxCJLG6REjsT03iWnKLEWinaScsxF2Vm2o=
 golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208 h1:qwRHBd0NqMbJxfbotnDhm2ByMI1Shq4Y6oRJo21SGJA=
 golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=

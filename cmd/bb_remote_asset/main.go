@@ -54,7 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create blob access: ", err)
 	}
-	assetStore := storage.NewAssetStore(assetBlobAccess.BlobAccess, int(config.MaximumMessageSizeBytes))
+	assetStore := storage.NewBlobAccessAssetStore(assetBlobAccess.BlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
