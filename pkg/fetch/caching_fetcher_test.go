@@ -35,7 +35,7 @@ func TestFetchBlobCaching(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	blobDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -90,7 +90,7 @@ func TestFetchDirectoryCaching(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	dirDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -144,7 +144,7 @@ func TestCachingFetcherExpiry(t *testing.T) {
 		InstanceName: "foo",
 		Uris:         []string{uri},
 	}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -180,7 +180,7 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 		Uris:                  []string{uri},
 		OldestContentAccepted: ptypes.TimestampNow(),
 	}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference(uri, []*remoteasset.Qualifier{}), instanceName)
+	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)

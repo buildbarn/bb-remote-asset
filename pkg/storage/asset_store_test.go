@@ -25,7 +25,7 @@ func TestAssetStorePut(t *testing.T) {
 
 	blobDigest := &remoteexecution.Digest{Hash: "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643", SizeBytes: 111}
 	uri := "https://example.com/example.txt"
-	assetRef := storage.NewAssetReference(uri, []*remoteasset.Qualifier{})
+	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
 	assetData := storage.NewAsset(blobDigest, ptypes.TimestampNow())
 	refDigest, err := storage.AssetReferenceToDigest(assetRef, instanceName)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestAssetStoreGet(t *testing.T) {
 
 	blobDigest := &remoteexecution.Digest{Hash: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f", SizeBytes: 222}
 	uri := "https://example.com/example.txt"
-	assetRef := storage.NewAssetReference(uri, []*remoteasset.Qualifier{})
+	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
 	refDigest, err := storage.AssetReferenceToDigest(assetRef, instanceName)
 	require.NoError(t, err)
 

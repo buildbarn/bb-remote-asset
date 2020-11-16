@@ -10,8 +10,8 @@ import "pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto";
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset";
 
 message ApplicationConfiguration {
-  // Asset store configuration for the Fetch and Push servers
-  buildbarn.configuration.blobstore.BlobAccessConfiguration asset_store = 1;
+  // Was Asset Store, this is replaced by Asset Cache
+  reserved 1;
 
   // Was 'http_listen_address'. This option has been moved to
   // 'global.diagnostics_http_listen_address'.
@@ -34,4 +34,25 @@ message ApplicationConfiguration {
   // Configuration for remote asset FetchServer
   buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher =
       8;
+
+  AssetCacheConfiguration asset_cache = 9;
+}
+
+message AssetCacheConfiguration {
+  oneof backend {
+    BlobAccessBackedAssetStoreConfiguration local_blob_access = 1;
+
+    ActionCacheBackedAssetStoreConfiguration action_cache = 2;
+  }
+}
+
+message BlobAccessBackedAssetStoreConfiguration {
+  buildbarn.configuration.blobstore.BlobAccessConfiguration asset_store = 1;
+
+  buildbarn.configuration.blobstore.BlobAccessConfiguration
+      content_addressable_storage = 2;
+}
+
+message ActionCacheBackedAssetStoreConfiguration {
+  buildbarn.configuration.blobstore.BlobstoreConfiguration blobstore = 1;
 }

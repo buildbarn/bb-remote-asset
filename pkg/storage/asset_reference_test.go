@@ -39,8 +39,8 @@ func TestAssetReferenceCreation(t *testing.T) {
 		},
 	}
 
-	assetRef := storage.NewAssetReference("uri", qualifiers)
+	assetRef := storage.NewAssetReference([]string{"uri"}, qualifiers)
 	require.Equal(t, sortedQualifiers, assetRef.Qualifiers)
-	sortedRef := storage.NewAssetReference("uri", sortedQualifiers)
+	sortedRef := storage.NewAssetReference([]string{"uri"}, sortedQualifiers)
 	require.Equal(t, sortedRef, assetRef)
 }

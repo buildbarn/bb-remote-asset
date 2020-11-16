@@ -9,9 +9,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
-	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
-	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
@@ -45,16 +42,11 @@ func main() {
 
 	// Initialize CAS storage access
 	grpcClientFactory := bb_grpc.DefaultClientFactory
-	casBlobAccessCreator := blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes))
 
-	assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-		config.AssetStore,
-		assetBlobAccessCreator)
+	assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(config.AssetCache, grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	if err != nil {
-		log.Fatal("Failed to create blob access: ", err)
+		log.Fatalf("Failed to create asset store and CAS: %v", err)
 	}
-	assetStore := storage.NewBlobAccessAssetStore(assetBlobAccess.BlobAccess, int(config.MaximumMessageSizeBytes))
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 	for _, instance := range config.AllowUpdatesForInstances {
@@ -65,7 +57,7 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, casBlobAccessCreator)
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage)
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}

@@ -35,7 +35,7 @@ func (s Set) Add(q string) {
 }
 
 // Difference calculates the Set difference a \ b.
-func Difference(a Set, b Set) Set {
+func Difference(a, b Set) Set {
 	diff := Set{}
 	for k := range a {
 		if !b.Contains(k) {

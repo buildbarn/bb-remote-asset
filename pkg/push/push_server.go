@@ -2,6 +2,7 @@ package push
 
 import (
 	"context"
+	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
@@ -40,7 +41,7 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 	}
 
 	for _, uri := range req.Uris {
-		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
+		assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
 		assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
 		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 		if err != nil {
@@ -66,8 +67,9 @@ func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.Pu
 	}
 
 	for _, uri := range req.Uris {
-		assetRef := storage.NewAssetReference(uri, req.Qualifiers)
+		assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
 		assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
+		log.Printf("Here")
 		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 		if err != nil {
 			return nil, err
