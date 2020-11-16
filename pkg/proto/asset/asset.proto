@@ -10,7 +10,7 @@ option go_package = "github.com/buildbarn/bb-storage/pkg/proto/asset";
 
 message AssetReference {
   // URI associated with this asset
-  string uri = 1;
+  repeated string uris = 1;
 
   // Qualifiers associated with this asset, sorted lexicographically
   // by key. Ties should be broken by lexicographical sort on values.

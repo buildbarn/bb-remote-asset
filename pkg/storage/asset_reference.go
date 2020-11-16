@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
@@ -16,10 +17,11 @@ import (
 // NewAssetReference creates a new AssetReference from a URI and a list
 // of qualifiers. Mainly this is a wrapper to ensure the qualifiers get
 // sorted
-func NewAssetReference(uri string, qualifiers []*remoteasset.Qualifier) *asset.AssetReference {
+func NewAssetReference(uris []string, qualifiers []*remoteasset.Qualifier) *asset.AssetReference {
 	sortedQualifiers := qualifier.Sorter(qualifiers)
 	sort.Sort(sortedQualifiers)
-	return &asset.AssetReference{Uri: uri, Qualifiers: sortedQualifiers.ToArray()}
+	sort.Strings(uris)
+	return &asset.AssetReference{Uris: uris, Qualifiers: sortedQualifiers.ToArray()}
 }
 
 // AssetReferenceToDigest converts an AssetReference into a bb-storage Digest of its
@@ -34,4 +36,41 @@ func AssetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceNa
 	sizeBytes := int64(len(wireFormat))
 
 	return instance.NewDigest(hex.EncodeToString(hash[:]), sizeBytes)
+}
+
+func assetReferenceToAction(ar *asset.AssetReference) (*remoteexecution.Action, *remoteexecution.Command, error) {
+	command := &remoteexecution.Command{
+		Arguments:   ar.Uris,
+		OutputPaths: []string{"out"},
+	}
+	commandDigest, err := ProtoToDigest(command)
+	if err != nil {
+		return nil, nil, err
+	}
+	action := &remoteexecution.Action{
+		CommandDigest: commandDigest,
+		InputRootDigest: &remoteexecution.Digest{
+			Hash:      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			SizeBytes: 0,
+		},
+	}
+	return action, command, nil
+}
+
+func assetReferenceToActionResult(ar *asset.AssetReference, directory bool) (*remoteexecution.ActionResult, error) {
+	return &remoteexecution.ActionResult{}, nil
+}
+
+// ProtoToDigest converts an arbitrary proto to a remote execution Digest
+func ProtoToDigest(pb proto.Message) (*remoteexecution.Digest, error) {
+	wireFormat, err := proto.Marshal(pb)
+	if err != nil {
+		return nil, err
+	}
+	hash := sha256.Sum256(wireFormat)
+
+	return &remoteexecution.Digest{
+		Hash:      hex.EncodeToString(hash[:]),
+		SizeBytes: int64(len(wireFormat)),
+	}, nil
 }

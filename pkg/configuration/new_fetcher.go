@@ -7,7 +7,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 
@@ -19,11 +19,11 @@ import (
 // server from a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
-	casBlobAccessCreator blobstore_configuration.BlobAccessCreator) (fetch.Fetcher, error) {
+	contentAddressableStorage blobstore.BlobAccess) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, casBlobAccessCreator)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage)
 		if err != nil {
 			return nil, err
 		}
@@ -40,15 +40,9 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			}
 			allowUpdatesForInstances[instanceName] = true
 		}
-		cas, err := blobstore_configuration.NewBlobAccessFromConfiguration(
-			backend.Http.ContentAddressableStorage,
-			casBlobAccessCreator)
-		if err != nil {
-			return nil, err
-		}
 		fetcher = fetch.NewHTTPFetcher(
 			http.DefaultClient,
-			cas.BlobAccess,
+			contentAddressableStorage,
 			allowUpdatesForInstances)
 	case *pb.FetcherConfiguration_Error:
 		fetcher = fetch.NewErrorFetcher(backend.Error)
