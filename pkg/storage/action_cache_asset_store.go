@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"log"
 	"time"
 
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -33,13 +32,16 @@ func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.B
 	}
 }
 
-func (rs *actionCacheAssetStore) isDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) error {
+func (rs *actionCacheAssetStore) isDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) (*remoteexecution.Directory, error) {
 	digest, err := instance.NewDigestFromProto(asset.Digest)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
-	return err
+	directory, err := rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
+	if err != nil {
+		return nil, err
+	}
+	return directory.(*remoteexecution.Directory), nil
 }
 
 func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *remoteexecution.ActionResult, instance digest.InstanceName) (*asset.Asset, error) {
@@ -49,7 +51,7 @@ func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *rem
 			digest = dir.TreeDigest
 		}
 	}
-	if (digest != &remoteexecution.Digest{}) {
+	if digest.Hash != "" {
 		treeDigest, err := instance.NewDigestFromProto(digest)
 		if err != nil {
 			return nil, err
@@ -78,7 +80,22 @@ func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *rem
 }
 
 func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetReference, instance digest.InstanceName) (*asset.Asset, error) {
-	action, _, err := assetReferenceToAction(ref)
+	qualifierReference := NewAssetReference(nil, ref.Qualifiers)
+	refDigest, err := ProtoToDigest(qualifierReference)
+	if err != nil {
+		return nil, err
+	}
+	directory := &remoteexecution.Directory{
+		Files: []*remoteexecution.FileNode{{
+			Name:   "AssetReference",
+			Digest: refDigest,
+		}},
+	}
+	directoryDigest, err := ProtoToDigest(directory)
+	if err != nil {
+		return nil, err
+	}
+	action, _, err := assetReferenceToAction(ref, directoryDigest)
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +118,49 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 }
 
 func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error {
-	action, command, err := assetReferenceToAction(ref)
+	qualifierReference := NewAssetReference(nil, ref.Qualifiers)
+	refDigest, err := ProtoToDigest(qualifierReference)
 	if err != nil {
 		return err
 	}
-	log.Printf("Action: %v", action)
+	refPb, err := proto.Marshal(qualifierReference)
+	if err != nil {
+		return err
+	}
+	bbRefDigest, err := AssetReferenceToDigest(qualifierReference, instance)
+	if err != nil {
+		return err
+	}
+	err = rs.contentAddressableStorage.Put(ctx, bbRefDigest, buffer.NewCASBufferFromByteSlice(bbRefDigest, refPb, buffer.UserProvided))
+	if err != nil {
+		return err
+	}
+	directory := &remoteexecution.Directory{
+		Files: []*remoteexecution.FileNode{{
+			Name:   "AssetReference",
+			Digest: refDigest,
+		}},
+	}
+	directoryPb, err := proto.Marshal(directory)
+	if err != nil {
+		return err
+	}
+	directoryDigest, err := ProtoToDigest(directory)
+	if err != nil {
+		return err
+	}
+	bbDirectoryDigest, err := instance.NewDigestFromProto(directoryDigest)
+	if err != nil {
+		return nil
+	}
+	err = rs.contentAddressableStorage.Put(ctx, bbDirectoryDigest, buffer.NewCASBufferFromByteSlice(bbDirectoryDigest, directoryPb, buffer.UserProvided))
+	if err != nil {
+		return err
+	}
+	action, command, err := assetReferenceToAction(ref, directoryDigest)
+	if err != nil {
+		return err
+	}
 	actionPb, err := proto.Marshal(action)
 	if err != nil {
 		return err
@@ -145,9 +200,9 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 			QueuedTimestamp: data.LastUpdated,
 		},
 	}
-	err = rs.isDirectory(ctx, data, instance)
+	d, err := rs.isDirectory(ctx, data, instance)
 	if err == nil {
-		tree, err := rs.directoryToTree(ctx, data.Digest, instance)
+		tree, err := rs.directoryToTree(ctx, d, instance)
 		if err != nil {
 			return err
 		}
@@ -180,21 +235,12 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 			Digest: data.Digest,
 		}}
 	}
-	log.Printf("Action Result: %v", actionResult)
 	return rs.actionCache.Put(ctx, bbActionDigest, buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided))
 }
 
-func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, d *remoteexecution.Digest, instance digest.InstanceName) (*remoteexecution.Tree, error) {
-	digest, err := instance.NewDigestFromProto(d)
-	if err != nil {
-		return nil, err
-	}
-	directory, err := rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
-	if err != nil {
-		return nil, err
-	}
+func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, directory *remoteexecution.Directory, instance digest.InstanceName) (*remoteexecution.Tree, error) {
 	children := []*remoteexecution.Directory{}
-	for _, node := range directory.(*remoteexecution.Directory).Directories {
+	for _, node := range directory.Directories {
 		nodeChildren, err := rs.directoryNodeToDirectories(ctx, instance, node)
 		if err != nil {
 			return nil, err
@@ -203,7 +249,7 @@ func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, d *remotee
 	}
 
 	return &remoteexecution.Tree{
-		Root:     directory.(*remoteexecution.Directory),
+		Root:     directory,
 		Children: children,
 	}, nil
 }

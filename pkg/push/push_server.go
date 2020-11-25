@@ -2,7 +2,6 @@ package push
 
 import (
 	"context"
-	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
@@ -40,15 +39,23 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 		return nil, status.Errorf(codes.PermissionDenied, "This service does not accept Blobs for instance %#v", req.InstanceName)
 	}
 
-	for _, uri := range req.Uris {
-		assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
-		assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
-		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
-		if err != nil {
-			return nil, err
-		}
+	assetRef := storage.NewAssetReference(req.Uris, req.Qualifiers)
+	assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
+	err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
+	if err != nil {
+		return nil, err
 	}
 
+	if len(req.Uris) > 1 {
+		for _, uri := range req.Uris {
+			assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
+			assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
+			err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return &remoteasset.PushBlobResponse{}, nil
 }
 
@@ -66,15 +73,22 @@ func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.Pu
 		return nil, status.Errorf(codes.PermissionDenied, "This service does not accept Directories for instance %#v", req.InstanceName)
 	}
 
-	for _, uri := range req.Uris {
-		assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
-		assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
-		log.Printf("Here")
-		err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
-		if err != nil {
-			return nil, err
-		}
+	assetRef := storage.NewAssetReference(req.Uris, req.Qualifiers)
+	assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
+	err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
+	if err != nil {
+		return nil, err
 	}
 
+	if len(req.Uris) > 1 {
+		for _, uri := range req.Uris {
+			assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
+			assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
+			err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return &remoteasset.PushDirectoryResponse{}, nil
 }
