@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAssetStorePut(t *testing.T) {
+func TestBlobAccessAssetStorePut(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("")
@@ -30,8 +30,8 @@ func TestAssetStorePut(t *testing.T) {
 	refDigest, err := storage.AssetReferenceToDigest(assetRef, instanceName)
 	require.NoError(t, err)
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
+	blobAccess := mock.NewMockBlobAccess(ctrl)
+	blobAccess.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
 			m, err := b.ToProto(&asset.Asset{}, 1000)
 			require.NoError(t, err)
@@ -39,13 +39,13 @@ func TestAssetStorePut(t *testing.T) {
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			return nil
 		})
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(blobAccess, 16*1024*1024)
 
 	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
 	require.NoError(t, err)
 }
 
-func TestAssetStoreGet(t *testing.T) {
+func TestBlobAccessAssetStoreGet(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("foo")

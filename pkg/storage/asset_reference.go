@@ -38,7 +38,7 @@ func AssetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceNa
 	return instance.NewDigest(hex.EncodeToString(hash[:]), sizeBytes)
 }
 
-func assetReferenceToAction(ar *asset.AssetReference) (*remoteexecution.Action, *remoteexecution.Command, error) {
+func assetReferenceToAction(ar *asset.AssetReference, directoryDigest *remoteexecution.Digest) (*remoteexecution.Action, *remoteexecution.Command, error) {
 	command := &remoteexecution.Command{
 		Arguments:   ar.Uris,
 		OutputPaths: []string{"out"},
@@ -48,11 +48,8 @@ func assetReferenceToAction(ar *asset.AssetReference) (*remoteexecution.Action, 
 		return nil, nil, err
 	}
 	action := &remoteexecution.Action{
-		CommandDigest: commandDigest,
-		InputRootDigest: &remoteexecution.Digest{
-			Hash:      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-			SizeBytes: 0,
-		},
+		CommandDigest:   commandDigest,
+		InputRootDigest: directoryDigest,
 	}
 	return action, command, nil
 }

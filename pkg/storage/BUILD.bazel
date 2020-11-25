@@ -30,8 +30,9 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "action_cache_asset_store_test.go",
         "asset_reference_test.go",
-        "asset_store_test.go",
+        "blob_access_asset_store_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -45,5 +46,7 @@ go_test(
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@com_github_stretchr_testify//require:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )
