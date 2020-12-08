@@ -40,7 +40,7 @@ message ApplicationConfiguration {
 
 message AssetCacheConfiguration {
   oneof backend {
-    BlobAccessBackedAssetStoreConfiguration local_blob_access = 1;
+    BlobAccessBackedAssetStoreConfiguration blob_access = 1;
 
     ActionCacheBackedAssetStoreConfiguration action_cache = 2;
   }

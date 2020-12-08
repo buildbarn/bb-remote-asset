@@ -11,7 +11,7 @@ The remote asset daemon can be configured with [bb-storage](https://github.com/b
 enable a scalable remote asset service which can be integrated with any REv2 compatible GRPC cache.
 
 ## Setting up the Remote Asset daemon
-
+With Action Cache
 ```
 $ cat config/bb_remote_asset.jsonnet
 {
@@ -26,17 +26,12 @@ $ cat config/bb_remote_asset.jsonnet
             },
     }}}}},
 
-  assetStore: {
-    circular: {
-      directory: '/storage-asset',
-      offsetFileSizeBytes: 1024 * 1024,
-      offsetCacheSize: 1000,
-      dataFileSizeBytes: 100 * 1024 * 1024,
-      dataAllocationChunkSizeBytes: 1048576,
-      instances: ['foo'],
+  assetCache: {
+    actionCache: {
+      blobstore: common.blobstore,
     },
   },
-  httpListenAddress: ':7982',
+  global: common.global,
   grpcServers: [{
     listenAddresses: [':8981'],
     authenticationPolicy: { allow: {} },
@@ -44,7 +39,67 @@ $ cat config/bb_remote_asset.jsonnet
   allowUpdatesForInstances: ['foo'],
   maximumMessageSizeBytes: 16 * 1024 * 1024 * 1024,
 }
+```
+With Blob Access cache
+```
+$ cat config/bb_remote_asset.jsonnet
+{
+  fetcher: {
+    caching: {
+      fetcher: {
+        http: {
+          allowUpdatesForInstances: ['foo'],
+          contentAddressableStorage: {
+            grpc: {
+              address: "<cache_address>:<cache grpc port>"
+            },
+    }}}}},
 
+  assetCache: {
+    blobAccess: {
+      assetStore: {
+        'local': {
+          keyLocationMapOnBlockDevice: {
+            file: {
+              path: '/storage/key_location_map',
+              sizeBytes: 1024 * 1024,
+            },
+          },
+          keyLocationMapMaximumGetAttempts: 8,
+          keyLocationMapMaximumPutAttempts: 32,
+          oldBlocks: 8,
+          currentBlocks: 24,
+          newBlocks: 3,
+          blocksOnBlockDevice: {
+            source: {
+              file: {
+                path: '/storage/blocks',
+                sizeBytes: 100 * 1024 * 1024,
+              },
+            },
+            spareBlocks: 3,
+          },
+          persistent: {
+            stateDirectoryPath: '/storage/persistent_state',
+            minimumEpochInterval: '5m',
+          },
+        },
+      },
+      contentAddressableStorage:
+        common.blobstore.contentAddressableStorage,
+    },
+  },
+  global: common.global,
+  grpcServers: [{
+    listenAddresses: [':8981'],
+    authenticationPolicy: { allow: {} },
+  }],
+  allowUpdatesForInstances: ['foo'],
+  maximumMessageSizeBytes: 16 * 1024 * 1024 * 1024,
+}
+```
+Both of the above configs rely on there being a common.libsonnet file.
+```
 $ docker run \
     -p 8981:8981 \
     -v $(pwd)/config:/config \

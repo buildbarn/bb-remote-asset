@@ -32,7 +32,7 @@ func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.B
 	}
 }
 
-func (rs *actionCacheAssetStore) isDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) (*remoteexecution.Directory, error) {
+func (rs *actionCacheAssetStore) assetToDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) (*remoteexecution.Directory, error) {
 	digest, err := instance.NewDigestFromProto(asset.Digest)
 	if err != nil {
 		return nil, err
@@ -46,16 +46,21 @@ func (rs *actionCacheAssetStore) isDirectory(ctx context.Context, asset *asset.A
 
 func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *remoteexecution.ActionResult, instance digest.InstanceName) (*asset.Asset, error) {
 	digest := &remoteexecution.Digest{}
+	// Check if there is an output directory in the action result
 	for _, dir := range a.OutputDirectories {
 		if dir.Path == "out" {
 			digest = dir.TreeDigest
 		}
 	}
+	// If the required output directory is present
 	if digest.Hash != "" {
 		treeDigest, err := instance.NewDigestFromProto(digest)
 		if err != nil {
 			return nil, err
 		}
+		// The action result contains a tree digest, but a directory digest
+		// is needed, so retrieve the tree message and get the digest of the
+		// root
 		tree, err := rs.contentAddressableStorage.Get(ctx, treeDigest).ToProto(&remoteexecution.Tree{}, rs.maximumMessageSizeBytes)
 		if err != nil {
 			return nil, err
@@ -66,6 +71,8 @@ func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *rem
 			return nil, err
 		}
 	} else {
+		// Required output directory is not present, look for required
+		// output file
 		for _, file := range a.OutputFiles {
 			if file.Path == "out" {
 				digest = file.Digest
@@ -80,11 +87,13 @@ func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *rem
 }
 
 func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetReference, instance digest.InstanceName) (*asset.Asset, error) {
+	// Create asset reference using only the qualifiers of the request
 	qualifierReference := NewAssetReference(nil, ref.Qualifiers)
 	refDigest, err := ProtoToDigest(qualifierReference)
 	if err != nil {
 		return nil, err
 	}
+	// Construct a directory using the reference of only qualifiers
 	directory := &remoteexecution.Directory{
 		Files: []*remoteexecution.FileNode{{
 			Name:   "AssetReference",
@@ -95,6 +104,8 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return nil, err
 	}
+	// Create an action using the asset ref and directory containing
+	// qualifiers
 	action, _, err := assetReferenceToAction(ref, directoryDigest)
 	if err != nil {
 		return nil, err
@@ -118,6 +129,7 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 }
 
 func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error {
+	// Create asset reference using only the qualifiers of the request
 	qualifierReference := NewAssetReference(nil, ref.Qualifiers)
 	refDigest, err := ProtoToDigest(qualifierReference)
 	if err != nil {
@@ -131,10 +143,15 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return err
 	}
+	// Put the qualifier reference in the CAS to ensure completeness of
+	// the action result
 	err = rs.contentAddressableStorage.Put(ctx, bbRefDigest, buffer.NewCASBufferFromByteSlice(bbRefDigest, refPb, buffer.UserProvided))
 	if err != nil {
 		return err
 	}
+	// Construct a directory using the reference of only qualifiers
+	// This is how qualifiers are linked to the assets when stored as
+	// action results
 	directory := &remoteexecution.Directory{
 		Files: []*remoteexecution.FileNode{{
 			Name:   "AssetReference",
@@ -157,6 +174,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return err
 	}
+	// Create the action with the qualifier directory as the input root
 	action, command, err := assetReferenceToAction(ref, directoryDigest)
 	if err != nil {
 		return err
@@ -200,8 +218,12 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 			QueuedTimestamp: data.LastUpdated,
 		},
 	}
-	d, err := rs.isDirectory(ctx, data, instance)
+
+	// Check if the input asset is a directory or blob
+	d, err := rs.assetToDirectory(ctx, data, instance)
 	if err == nil {
+		// If it is a directory, construct a tree from it as tree digest is
+		// required for action result
 		tree, err := rs.directoryToTree(ctx, d, instance)
 		if err != nil {
 			return err
@@ -227,6 +249,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 			TreeDigest: treeDigest,
 		}}
 	} else {
+		// If it isn't a directory, use the digest as an output file digest
 		if status.Code(err) != codes.InvalidArgument {
 			return err
 		}
