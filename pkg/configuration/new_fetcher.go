@@ -8,8 +8,8 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
-	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,11 +19,13 @@ import (
 // server from a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
-	contentAddressableStorage blobstore.BlobAccess) (fetch.Fetcher, error) {
+	contentAddressableStorage blobstore.BlobAccess,
+	grpcClientFactory grpc.ClientFactory,
+	maximumMessageSizeBytes int) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, maximumMessageSizeBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -46,10 +48,15 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			allowUpdatesForInstances)
 	case *pb.FetcherConfiguration_Error:
 		fetcher = fetch.NewErrorFetcher(backend.Error)
+	case *pb.FetcherConfiguration_RemoteExecution:
+		client, err := grpcClientFactory.NewClientFromConfiguration(backend.RemoteExecution.ExecutionClient)
+		if err != nil {
+			return nil, err
+		}
+		fetcher = fetch.NewFetchingFetcher(contentAddressableStorage, client, maximumMessageSizeBytes)
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
 
-	fetchServer := fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher))
-	return fetch.NewMetricsFetcher(fetchServer, clock.SystemClock, "fetch"), nil
+	return fetcher, nil
 }

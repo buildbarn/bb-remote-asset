@@ -8,6 +8,7 @@ go_library(
         "asset_reference.go",
         "asset_store.go",
         "blob_access_asset_store.go",
+        "digest.go",
     ],
     importpath = "github.com/buildbarn/bb-remote-asset/pkg/storage",
     visibility = ["//visibility:public"],
