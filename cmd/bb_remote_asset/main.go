@@ -7,6 +7,7 @@ import (
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
+	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
 	"github.com/buildbarn/bb-storage/pkg/clock"
@@ -57,10 +58,16 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage)
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
+	fetchServer = fetch.NewMetricsFetcher(
+		fetch.NewValidatingFetcher(
+			fetch.NewLoggingFetcher(fetchServer),
+		),
+		clock.SystemClock, "fetch",
+	)
 
 	pushServer := push.NewAssetPushServer(
 		assetStore,
