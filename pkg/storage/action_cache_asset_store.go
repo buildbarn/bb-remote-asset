@@ -2,10 +2,12 @@ package storage
 
 import (
 	"context"
+	"log"
 	"time"
 
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
@@ -104,11 +106,23 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return nil, err
 	}
-	// Create an action using the asset ref and directory containing
-	// qualifiers
-	action, _, err := assetReferenceToAction(ref, directoryDigest)
-	if err != nil {
-		return nil, err
+	var action *remoteexecution.Action
+	if commandGenerator, err := qualifier.QualifiersToCommand(ref.Qualifiers); err != nil || len(ref.Uris) > 1 {
+		// Create the action with the qualifier directory as the input root
+		action, _, err = assetReferenceToAction(ref, directoryDigest)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		command := commandGenerator(ref.Uris[0])
+		commandDigest, err := ProtoToDigest(command)
+		if err != nil {
+			return nil, err
+		}
+		action = &remoteexecution.Action{
+			CommandDigest:   commandDigest,
+			InputRootDigest: EmptyDigest,
+		}
 	}
 	actionDigest, err := ProtoToDigest(action)
 	if err != nil {
@@ -125,6 +139,7 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Fetched from action cache")
 	return rs.actionResultToAsset(ctx, data.(*remoteexecution.ActionResult), instance)
 }
 
@@ -174,10 +189,24 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return err
 	}
-	// Create the action with the qualifier directory as the input root
-	action, command, err := assetReferenceToAction(ref, directoryDigest)
-	if err != nil {
-		return err
+	var action *remoteexecution.Action
+	var command *remoteexecution.Command
+	if commandGenerator, err := qualifier.QualifiersToCommand(ref.Qualifiers); err != nil || len(ref.Uris) > 1 {
+		// Create the action with the qualifier directory as the input root
+		action, command, err = assetReferenceToAction(ref, directoryDigest)
+		if err != nil {
+			return err
+		}
+	} else {
+		command = commandGenerator(ref.Uris[0])
+		commandDigest, err := ProtoToDigest(command)
+		if err != nil {
+			return err
+		}
+		action = &remoteexecution.Action{
+			CommandDigest:   commandDigest,
+			InputRootDigest: directoryDigest,
+		}
 	}
 	actionPb, err := proto.Marshal(action)
 	if err != nil {

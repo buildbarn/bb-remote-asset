@@ -17,14 +17,17 @@ func makeMap(qualifiers []*remoteasset.Qualifier) map[string]string {
 	return qual
 }
 
+// QualifiersToCommand takes a slice of remote asset API qualifiers and
+// returns a function which takes a URI and returns a REv2 Command to
+// fetch the given URI
 func QualifiersToCommand(qArr []*remoteasset.Qualifier) (func(string) *remoteexecution.Command, error) {
 	qualifiers := makeMap(qArr)
-	resource_type, ok := qualifiers["resource_type"]
+	resourceType, ok := qualifiers["resource_type"]
 	if !ok {
 		return nil, fmt.Errorf("missing resource_type")
 	}
 
-	switch resource_type {
+	switch resourceType {
 	case "application/x-git":
 		return gitCommand(qualifiers), nil
 	case "application/octet-stream":
@@ -42,16 +45,16 @@ func QualifiersToCommand(qArr []*remoteasset.Qualifier) (func(string) *remoteexe
 // requested commit exists on the branch.
 func gitCommand(qualifiers map[string]string) func(string) *remoteexecution.Command {
 	return func(url string) *remoteexecution.Command {
-		script := fmt.Sprintf("git clone %s repo", url)
+		script := fmt.Sprintf("git clone %s out", url)
 		if branch, ok := qualifiers["vcs.branch"]; ok {
 			script = script + fmt.Sprintf(" --single-branch --branch %s", branch)
 		}
 		if commit, ok := qualifiers["vcs.commit"]; ok {
-			script = script + fmt.Sprintf(" && cd repo && git checkout %s && cd ..", commit)
+			script = script + fmt.Sprintf(" && cd out && git checkout %s && cd ..", commit)
 		}
 		return &remoteexecution.Command{
 			Arguments:   []string{"sh", "-c", script},
-			OutputPaths: []string{"repo"},
+			OutputPaths: []string{"out"},
 		}
 	}
 }
