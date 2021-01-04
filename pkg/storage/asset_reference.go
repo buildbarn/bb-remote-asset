@@ -54,10 +54,6 @@ func assetReferenceToAction(ar *asset.AssetReference, directoryDigest *remoteexe
 	return action, command, nil
 }
 
-func assetReferenceToActionResult(ar *asset.AssetReference, directory bool) (*remoteexecution.ActionResult, error) {
-	return &remoteexecution.ActionResult{}, nil
-}
-
 // ProtoToDigest converts an arbitrary proto to a remote execution Digest
 func ProtoToDigest(pb proto.Message) (*remoteexecution.Digest, error) {
 	wireFormat, err := proto.Marshal(pb)

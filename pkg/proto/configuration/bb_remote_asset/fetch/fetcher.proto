@@ -43,7 +43,6 @@ message FetcherConfiguration {
   }
 
   message RemoteExecutionFetcherConfiguration {
-    buildbarn.configuration.grpc.ClientConfiguration execution_client =
-    2;
+    buildbarn.configuration.grpc.ClientConfiguration execution_client = 2;
   }
 }

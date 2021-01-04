@@ -20,8 +20,7 @@ import (
 type fetchingFetcher struct {
 	contentAddressableStorage blobstore.BlobAccess
 	executionClient           remoteexecution.ExecutionClient
-	//qualifierTranslator       qualifier.QualifierTranslator
-	maximumMessageSizeBytes int
+	maximumMessageSizeBytes   int
 }
 
 // NewFetchingFetcher creates a new Fetcher that is capable of itself
@@ -31,8 +30,7 @@ func NewFetchingFetcher(contentAddressableStorage blobstore.BlobAccess, client g
 	return &fetchingFetcher{
 		contentAddressableStorage: contentAddressableStorage,
 		executionClient:           remoteexecution.NewExecutionClient(client),
-		//qualifierTranslator:       &qualifier.SimpleQualifierTranslator{},
-		maximumMessageSizeBytes: maximumMessageSizeBytes,
+		maximumMessageSizeBytes:   maximumMessageSizeBytes,
 	}
 }
 
@@ -222,7 +220,7 @@ func (ff *fetchingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.
 		}
 	}
 	return &remoteasset.FetchDirectoryResponse{
-		Status:              status.New(codes.OK, "Blob fetched successfully!").Proto(),
+		Status:              status.New(codes.OK, "Directory fetched successfully!").Proto(),
 		Uri:                 uri,
 		Qualifiers:          req.Qualifiers,
 		RootDirectoryDigest: rootDigest,
