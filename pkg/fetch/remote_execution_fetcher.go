@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -17,24 +18,24 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type fetchingFetcher struct {
+type remoteExecutionFetcher struct {
 	contentAddressableStorage blobstore.BlobAccess
 	executionClient           remoteexecution.ExecutionClient
 	maximumMessageSizeBytes   int
 }
 
-// NewFetchingFetcher creates a new Fetcher that is capable of itself
-// fetching resources from other places (as defined in the
+// NewRemoteExecutionFetcher creates a new Fetcher that is capable of
+// itself fetching resources from other places (as defined in the
 // qualifier_translator).
-func NewFetchingFetcher(contentAddressableStorage blobstore.BlobAccess, client grpc.ClientConnInterface, maximumMessageSizeBytes int) Fetcher {
-	return &fetchingFetcher{
+func NewRemoteExecutionFetcher(contentAddressableStorage blobstore.BlobAccess, client grpc.ClientConnInterface, maximumMessageSizeBytes int) Fetcher {
+	return &remoteExecutionFetcher{
 		contentAddressableStorage: contentAddressableStorage,
 		executionClient:           remoteexecution.NewExecutionClient(client),
 		maximumMessageSizeBytes:   maximumMessageSizeBytes,
 	}
 }
 
-func (ff *fetchingFetcher) fetchCommon(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteexecution.ActionResult, string, string, error) {
+func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteexecution.ActionResult, string, string, error) {
 	instanceName, err := digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, "", "", err
@@ -73,7 +74,7 @@ func (ff *fetchingFetcher) fetchCommon(ctx context.Context, req *remoteasset.Fet
 		if err != nil {
 			return nil, "", "", err
 		}
-		err = ff.contentAddressableStorage.Put(ctx, bbActionDigest, buffer.NewCASBufferFromByteSlice(bbActionDigest, actionPb, buffer.UserProvided))
+		err = rf.contentAddressableStorage.Put(ctx, bbActionDigest, buffer.NewCASBufferFromByteSlice(bbActionDigest, actionPb, buffer.UserProvided))
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -82,12 +83,12 @@ func (ff *fetchingFetcher) fetchCommon(ctx context.Context, req *remoteasset.Fet
 		if err != nil {
 			return nil, "", "", err
 		}
-		err = ff.contentAddressableStorage.Put(ctx, bbCommandDigest, buffer.NewCASBufferFromByteSlice(bbCommandDigest, commandPb, buffer.UserProvided))
+		err = rf.contentAddressableStorage.Put(ctx, bbCommandDigest, buffer.NewCASBufferFromByteSlice(bbCommandDigest, commandPb, buffer.UserProvided))
 		if err != nil {
 			return nil, "", "", err
 		}
 
-		stream, err := ff.executionClient.Execute(ctx, &remoteexecution.ExecuteRequest{
+		stream, err := rf.executionClient.Execute(ctx, &remoteexecution.ExecuteRequest{
 			InstanceName: req.InstanceName,
 			ActionDigest: actionDigest,
 		})
@@ -112,6 +113,7 @@ func (ff *fetchingFetcher) fetchCommon(ctx context.Context, req *remoteasset.Fet
 
 		actionResult := response.GetResult()
 		if exitCode := actionResult.GetExitCode(); exitCode != 0 {
+			log.Printf("Remote execution fetch was unsuccessful for URI: %v", uri)
 			continue
 		}
 		return actionResult, uri, command.OutputPaths[0], nil
@@ -119,8 +121,8 @@ func (ff *fetchingFetcher) fetchCommon(ctx context.Context, req *remoteasset.Fet
 	return nil, "", "", status.Errorf(codes.NotFound, "Unable to download blob from any of the provided URIs")
 }
 
-func (ff *fetchingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	actionResult, uri, outputPath, err := ff.fetchCommon(ctx, req)
+func (rf *remoteExecutionFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
+	actionResult, uri, outputPath, err := rf.fetchCommon(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +153,13 @@ func (ff *fetchingFetcher) FetchBlob(ctx context.Context, req *remoteasset.Fetch
 	}, nil
 }
 
-func (ff *fetchingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
+func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	blobReq := &remoteasset.FetchBlobRequest{
 		InstanceName: req.InstanceName,
 		Uris:         req.Uris,
 		Qualifiers:   req.Qualifiers,
 	}
-	actionResult, uri, outputPath, err := ff.fetchCommon(ctx, blobReq)
+	actionResult, uri, outputPath, err := rf.fetchCommon(ctx, blobReq)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +190,7 @@ func (ff *fetchingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.
 	if err != nil {
 		return nil, err
 	}
-	tree, err := ff.contentAddressableStorage.Get(ctx, treeDigest).ToProto(&remoteexecution.Tree{}, ff.maximumMessageSizeBytes)
+	tree, err := rf.contentAddressableStorage.Get(ctx, treeDigest).ToProto(&remoteexecution.Tree{}, rf.maximumMessageSizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +203,7 @@ func (ff *fetchingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.
 	if err != nil {
 		return nil, err
 	}
-	err = ff.contentAddressableStorage.Put(ctx, bbRootDigest, buffer.NewProtoBufferFromProto(root, buffer.UserProvided))
+	err = rf.contentAddressableStorage.Put(ctx, bbRootDigest, buffer.NewProtoBufferFromProto(root, buffer.UserProvided))
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +216,7 @@ func (ff *fetchingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.
 		if err != nil {
 			return nil, err
 		}
-		err = ff.contentAddressableStorage.Put(ctx, bbChildDigest, buffer.NewProtoBufferFromProto(child, buffer.UserProvided))
+		err = rf.contentAddressableStorage.Put(ctx, bbChildDigest, buffer.NewProtoBufferFromProto(child, buffer.UserProvided))
 		if err != nil {
 			return nil, err
 		}
@@ -227,6 +229,6 @@ func (ff *fetchingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.
 	}, nil
 }
 
-func (ff *fetchingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
+func (rf *remoteExecutionFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"resource_type", "vcs.branch", "vcs.commit", "auth.basic.username", "auth.basic.password", "checksum.sri"}))
 }
