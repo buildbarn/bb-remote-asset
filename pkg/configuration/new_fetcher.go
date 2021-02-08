@@ -53,7 +53,7 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		if err != nil {
 			return nil, err
 		}
-		fetcher = fetch.NewFetchingFetcher(contentAddressableStorage, client, maximumMessageSizeBytes)
+		fetcher = fetch.NewRemoteExecutionFetcher(contentAddressableStorage, client, maximumMessageSizeBytes)
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
