@@ -23,9 +23,9 @@ var (
 			Subsystem: "remote_asset",
 			Name:      "http_fetcher_blob_size_bytes",
 			Help:      "Size of blobs fetched using the http fetcher, in bytes",
-			Buckets:   util.DecimalExponentialBuckets(-3, 6, 2),
+			Buckets:   util.DecimalExponentialBuckets(1, 6, 2),
 		},
-		[]string{"name", "operation"})
+		[]string{"name", "operation", "resource_type"})
 	blobAccessOperationsDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "buildbarn",
@@ -34,14 +34,14 @@ var (
 			Help:      "Amount of time spent per operation on fetching remote assets, in seconds.",
 			Buckets:   util.DecimalExponentialBuckets(-3, 6, 2),
 		},
-		[]string{"name", "operation", "status"})
+		[]string{"name", "operation", "status", "resource_type"})
 )
 
 type metricsFetcher struct {
 	fetcher Fetcher
 	clock   clock.Clock
 
-	fetchBlobBlobSizeBytes        prometheus.Observer
+	fetchBlobBlobSizeBytes        prometheus.ObserverVec
 	fetchBlobDurationSeconds      prometheus.ObserverVec
 	fetchDirectoryDurationSeconds prometheus.ObserverVec
 }
@@ -57,25 +57,51 @@ func NewMetricsFetcher(fetcher Fetcher, clock clock.Clock, name string) Fetcher 
 		fetcher: fetcher,
 		clock:   clock,
 
-		fetchBlobBlobSizeBytes:        httpFetcherOperationsBlobSizeBytes.WithLabelValues(name, "Fetch Blob"),
+		fetchBlobBlobSizeBytes:        httpFetcherOperationsBlobSizeBytes.MustCurryWith(map[string]string{"name": name, "operation": "Fetch Blob"}),
 		fetchBlobDurationSeconds:      blobAccessOperationsDurationSeconds.MustCurryWith(map[string]string{"name": name, "operation": "FetchBlob"}),
 		fetchDirectoryDurationSeconds: blobAccessOperationsDurationSeconds.MustCurryWith(map[string]string{"name": name, "operation": "FetchDirectory"}),
 	}
 }
 
-func (mf *metricsFetcher) updateDurationSeconds(vec prometheus.ObserverVec, code codes.Code, timeStart time.Time) {
-	vec.WithLabelValues(code.String()).Observe(mf.clock.Now().Sub(timeStart).Seconds())
+func (mf *metricsFetcher) updateDurationSeconds(vec prometheus.ObserverVec, code codes.Code, timeStart time.Time, qualifiers []*remoteasset.Qualifier) {
+	if len(qualifiers) == 0 {
+		vec.WithLabelValues(code.String(), "N/A").Observe(mf.clock.Now().Sub(timeStart).Seconds())
+	} else {
+		resourceType := "N/A"
+		for _, qualifier := range qualifiers {
+			if qualifier.Name == "resource_type" {
+				resourceType = qualifier.Value
+				break
+			}
+		}
+		vec.WithLabelValues(code.String(), resourceType).Observe(mf.clock.Now().Sub(timeStart).Seconds())
+	}
+}
+
+func (mf *metricsFetcher) updateBlobSizeBytes(vec prometheus.ObserverVec, blobSize float64, qualifiers []*remoteasset.Qualifier) {
+	if len(qualifiers) == 0 {
+		vec.WithLabelValues("N/A").Observe(blobSize)
+	} else {
+		resourceType := "N/A"
+		for _, qualifier := range qualifiers {
+			if qualifier.Name == "resource_type" {
+				resourceType = qualifier.Value
+				break
+			}
+		}
+		vec.WithLabelValues(resourceType).Observe(blobSize)
+	}
 }
 
 func (mf *metricsFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
 	timeStart := mf.clock.Now()
 	resp, err := mf.fetcher.FetchBlob(ctx, req)
 	if err != nil {
-		mf.updateDurationSeconds(mf.fetchBlobDurationSeconds, status.Code(err), timeStart)
+		mf.updateDurationSeconds(mf.fetchBlobDurationSeconds, status.Code(err), timeStart, req.Qualifiers)
 		return nil, err
 	}
-	mf.updateDurationSeconds(mf.fetchBlobDurationSeconds, codes.Code(resp.Status.Code), timeStart)
-	mf.fetchBlobBlobSizeBytes.Observe(float64(resp.BlobDigest.SizeBytes))
+	mf.updateDurationSeconds(mf.fetchBlobDurationSeconds, codes.Code(resp.Status.Code), timeStart, req.Qualifiers)
+	mf.updateBlobSizeBytes(mf.fetchBlobBlobSizeBytes, float64(resp.BlobDigest.SizeBytes), req.Qualifiers)
 	return resp, err
 }
 
@@ -83,10 +109,10 @@ func (mf *metricsFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	timeStart := mf.clock.Now()
 	resp, err := mf.fetcher.FetchDirectory(ctx, req)
 	if err != nil {
-		mf.updateDurationSeconds(mf.fetchDirectoryDurationSeconds, status.Code(err), timeStart)
+		mf.updateDurationSeconds(mf.fetchDirectoryDurationSeconds, status.Code(err), timeStart, req.Qualifiers)
 		return nil, err
 	}
-	mf.updateDurationSeconds(mf.fetchDirectoryDurationSeconds, codes.Code(resp.Status.Code), timeStart)
+	mf.updateDurationSeconds(mf.fetchDirectoryDurationSeconds, codes.Code(resp.Status.Code), timeStart, req.Qualifiers)
 	return resp, err
 }
 
