@@ -22,9 +22,9 @@ var (
 			Subsystem: "push_server",
 			Name:      "push_server_blob_size_bytes",
 			Help:      "Size of blobs being pushed, in bytes.",
-			Buckets:   util.DecimalExponentialBuckets(-3, 6, 2),
+			Buckets:   util.DecimalExponentialBuckets(1, 6, 2),
 		},
-		[]string{"name", "operation"})
+		[]string{"name", "operation", "resource_type"})
 	pushServerOperationsDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "buildbarn",
@@ -33,7 +33,7 @@ var (
 			Help:      "Amount of time spent per operation on pushing remote assets, in seconds.",
 			Buckets:   util.DecimalExponentialBuckets(-3, 6, 2),
 		},
-		[]string{"name", "operation", "grpc_code"})
+		[]string{"name", "operation", "grpc_code", "resource_type"})
 
 	// todo(arlyon): directory size?
 )
@@ -42,7 +42,7 @@ type metricsAssetPushServer struct {
 	pushServer remoteasset.PushServer
 	clock      clock.Clock
 
-	pushBlobBlobSizeBytes        prometheus.Observer
+	pushBlobBlobSizeBytes        prometheus.ObserverVec
 	pushBlobDurationSeconds      prometheus.ObserverVec
 	pushDirectoryDurationSeconds prometheus.ObserverVec
 }
@@ -59,29 +59,55 @@ func NewMetricsAssetPushServer(ps remoteasset.PushServer, clock clock.Clock, nam
 		pushServer: ps,
 		clock:      clock,
 
-		pushBlobBlobSizeBytes:        pushServerOperationsBlobSizeBytes.WithLabelValues(name, "PushBlob"),
+		pushBlobBlobSizeBytes:        pushServerOperationsBlobSizeBytes.MustCurryWith(map[string]string{"name": name, "operation": "PushBlob"}),
 		pushBlobDurationSeconds:      pushServerOperationsDurationSeconds.MustCurryWith(map[string]string{"name": name, "operation": "PushBlob"}),
 		pushDirectoryDurationSeconds: pushServerOperationsDurationSeconds.MustCurryWith(map[string]string{"name": name, "operation": "PushDirectory"}),
 	}
 }
 
-func (s *metricsAssetPushServer) updateDurationSeconds(vec prometheus.ObserverVec, code codes.Code, timeStart time.Time) {
-	vec.WithLabelValues(code.String()).Observe(s.clock.Now().Sub(timeStart).Seconds())
+func (s *metricsAssetPushServer) updateDurationSeconds(vec prometheus.ObserverVec, code codes.Code, timeStart time.Time, qualifiers []*remoteasset.Qualifier) {
+	if len(qualifiers) == 0 {
+		vec.WithLabelValues(code.String(), "N/A").Observe(s.clock.Now().Sub(timeStart).Seconds())
+	} else {
+		resourceType := "N/A"
+		for _, qualifier := range qualifiers {
+			if qualifier.Name == "resource_type" {
+				resourceType = qualifier.Value
+				break
+			}
+		}
+		vec.WithLabelValues(code.String(), resourceType).Observe(s.clock.Now().Sub(timeStart).Seconds())
+	}
+}
+
+func (s *metricsAssetPushServer) updateBlobSizeBytes(vec prometheus.ObserverVec, blobSize float64, qualifiers []*remoteasset.Qualifier) {
+	if len(qualifiers) == 0 {
+		vec.WithLabelValues("N/A").Observe(blobSize)
+	} else {
+		resourceType := "N/A"
+		for _, qualifier := range qualifiers {
+			if qualifier.Name == "resource_type" {
+				resourceType = qualifier.Value
+				break
+			}
+		}
+		vec.WithLabelValues(resourceType).Observe(blobSize)
+	}
 }
 
 func (s *metricsAssetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlobRequest) (*remoteasset.PushBlobResponse, error) {
 	if req.BlobDigest != nil {
-		s.pushBlobBlobSizeBytes.Observe(float64(req.BlobDigest.SizeBytes))
+		s.updateBlobSizeBytes(s.pushBlobBlobSizeBytes, float64(req.BlobDigest.SizeBytes), req.Qualifiers)
 	}
 	timeStart := s.clock.Now()
 	resp, err := s.pushServer.PushBlob(ctx, req)
-	s.updateDurationSeconds(s.pushBlobDurationSeconds, status.Code(err), timeStart)
+	s.updateDurationSeconds(s.pushBlobDurationSeconds, status.Code(err), timeStart, req.Qualifiers)
 	return resp, err
 }
 
 func (s *metricsAssetPushServer) PushDirectory(ctx context.Context, req *remoteasset.PushDirectoryRequest) (*remoteasset.PushDirectoryResponse, error) {
 	timeStart := s.clock.Now()
 	resp, err := s.pushServer.PushDirectory(ctx, req)
-	s.updateDurationSeconds(s.pushDirectoryDurationSeconds, status.Code(err), timeStart)
+	s.updateDurationSeconds(s.pushDirectoryDurationSeconds, status.Code(err), timeStart, req.Qualifiers)
 	return resp, err
 }
