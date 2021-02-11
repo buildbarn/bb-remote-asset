@@ -22,7 +22,7 @@ var (
 			Subsystem: "push_server",
 			Name:      "push_server_blob_size_bytes",
 			Help:      "Size of blobs being pushed, in bytes.",
-			Buckets:   util.DecimalExponentialBuckets(1, 6, 2),
+			Buckets:   prometheus.ExponentialBuckets(1.0, 2.0, 33),
 		},
 		[]string{"name", "operation", "resource_type"})
 	pushServerOperationsDurationSeconds = prometheus.NewHistogramVec(

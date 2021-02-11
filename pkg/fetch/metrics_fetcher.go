@@ -23,7 +23,7 @@ var (
 			Subsystem: "remote_asset",
 			Name:      "http_fetcher_blob_size_bytes",
 			Help:      "Size of blobs fetched using the http fetcher, in bytes",
-			Buckets:   util.DecimalExponentialBuckets(1, 6, 2),
+			Buckets:   prometheus.ExponentialBuckets(1.0, 2.0, 33),
 		},
 		[]string{"name", "operation", "resource_type"})
 	blobAccessOperationsDurationSeconds = prometheus.NewHistogramVec(
