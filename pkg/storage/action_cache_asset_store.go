@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"log"
 	"time"
 
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -139,7 +138,6 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Fetched from action cache")
 	return rs.actionResultToAsset(ctx, data.(*remoteexecution.ActionResult), instance)
 }
 
@@ -205,7 +203,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 		}
 		action = &remoteexecution.Action{
 			CommandDigest:   commandDigest,
-			InputRootDigest: directoryDigest,
+			InputRootDigest: EmptyDigest,
 		}
 	}
 	actionPb, err := proto.Marshal(action)
