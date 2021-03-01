@@ -43,6 +43,8 @@ message AssetCacheConfiguration {
     BlobAccessBackedAssetStoreConfiguration blob_access = 1;
 
     ActionCacheBackedAssetStoreConfiguration action_cache = 2;
+
+    NoAssetCacheConfiguration cas_only = 3;
   }
 }
 
@@ -55,4 +57,9 @@ message BlobAccessBackedAssetStoreConfiguration {
 
 message ActionCacheBackedAssetStoreConfiguration {
   buildbarn.configuration.blobstore.BlobstoreConfiguration blobstore = 1;
+}
+
+message NoAssetCacheConfiguration {
+  buildbarn.configuration.blobstore.BlobAccessConfiguration
+      content_addressable_storage = 1;
 }

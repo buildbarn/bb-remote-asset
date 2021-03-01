@@ -37,6 +37,12 @@ func NewAssetStoreAndCASFromConfiguration(configuration *pb.AssetCacheConfigurat
 		}
 		contentAddressableStorage = cas
 		assetStore = storage.NewActionCacheAssetStore(actionCache, contentAddressableStorage, maximumMessageSizeBytes)
+	case *pb.AssetCacheConfiguration_CasOnly:
+		contentAddressableStorageInfo, err := blobstore_configuration.NewBlobAccessFromConfiguration(backend.CasOnly.ContentAddressableStorage, blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, maximumMessageSizeBytes))
+		if err != nil {
+			return nil, nil, err
+		}
+		contentAddressableStorage = contentAddressableStorageInfo.BlobAccess
 	}
 	return assetStore, contentAddressableStorage, nil
 }

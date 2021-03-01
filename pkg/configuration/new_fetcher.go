@@ -25,7 +25,10 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, maximumMessageSizeBytes)
+		if assetStore == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is not valid, caching fetcher is specified but asset store is not")
+		}
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, maximumMessageSizeBytes)
 		if err != nil {
 			return nil, err
 		}
