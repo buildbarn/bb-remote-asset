@@ -15,8 +15,10 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
+	protostatus "google.golang.org/genproto/googleapis/rpc/status"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 // timestampDelta is returned by the timestamp_proto_delta, returning a
@@ -73,6 +75,11 @@ func main() {
 			assetStore,
 			allowUpdatesForInstances)
 		metricsPushServer = push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
+	} else {
+		metricsPushServer = push.NewErrorPushServer(&protostatus.Status{
+			Code:    int32(codes.FailedPrecondition),
+			Message: "Server is not configured to allow pushing assets",
+		})
 	}
 
 	// Spawn gRPC servers for client and worker traffic.
@@ -84,9 +91,7 @@ func main() {
 				func(s grpc.ServiceRegistrar) {
 					// Register services
 					remoteasset.RegisterFetchServer(s, fetchServer)
-					if metricsPushServer != nil {
-						remoteasset.RegisterPushServer(s, metricsPushServer)
-					}
+					remoteasset.RegisterPushServer(s, metricsPushServer)
 				}))
 	}()
 
