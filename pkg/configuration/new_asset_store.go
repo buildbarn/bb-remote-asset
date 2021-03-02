@@ -7,6 +7,9 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // NewAssetStoreAndCASFromConfiguration creates an Asset Store and
@@ -43,6 +46,8 @@ func NewAssetStoreAndCASFromConfiguration(configuration *pb.AssetCacheConfigurat
 			return nil, nil, err
 		}
 		contentAddressableStorage = contentAddressableStorageInfo.BlobAccess
+	default:
+		return nil, nil, status.Errorf(codes.InvalidArgument, "Asset Cache configuration is invalid as no supported Asset Cache is defined.")
 	}
 	return assetStore, contentAddressableStorage, nil
 }
