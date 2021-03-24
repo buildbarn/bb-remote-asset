@@ -47,10 +47,10 @@ func gitCommand(qualifiers map[string]string) func(string) *remoteexecution.Comm
 	return func(url string) *remoteexecution.Command {
 		script := fmt.Sprintf("git clone %s out", url)
 		if branch, ok := qualifiers["vcs.branch"]; ok {
-			script = script + fmt.Sprintf(" --single-branch --branch %s", branch)
+			script = fmt.Sprintf("%s --single-branch --branch %s", script, branch)
 		}
 		if commit, ok := qualifiers["vcs.commit"]; ok {
-			script = script + fmt.Sprintf(" && cd out && git checkout %s && cd ..", commit)
+			script = fmt.Sprintf("%s && git -C out checkout %s", script, commit)
 		}
 		return &remoteexecution.Command{
 			Arguments:   []string{"sh", "-c", script},
@@ -67,14 +67,14 @@ func octetStreamCommand(qualifiers map[string]string) func(string) *remoteexecut
 	return func(url string) *remoteexecution.Command {
 		script := fmt.Sprintf("wget -O out %s", url)
 		if username, ok := qualifiers["auth.basic.username"]; ok {
-			script = script + fmt.Sprintf("--http-user=%s", username)
+			script = fmt.Sprintf("%s --http-user=%s", script, username)
 		}
 		if password, ok := qualifiers["auth.basic.password"]; ok {
-			script = script + fmt.Sprintf("--http-password=%s", password)
+			script = fmt.Sprintf("%s --http-password=%s", script, password)
 		}
 		if checksum, ok := qualifiers["checksum.sri"]; ok {
 			protocol, base64 := parseChecksum(checksum)
-			script = script + fmt.Sprintf(" && openssl dgst -%s -binary out | openssl base64 -A | grep %s", protocol, base64)
+			script = fmt.Sprintf("%s && openssl dgst -%s -binary out | openssl base64 -A | grep %s", script, protocol, base64)
 		}
 
 		return &remoteexecution.Command{
