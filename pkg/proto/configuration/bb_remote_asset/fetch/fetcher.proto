@@ -25,6 +25,14 @@ message FetcherConfiguration {
     // quotes to avoid collision with a protected keyword
     google.rpc.Status error = 3;
 
+    // Downloads blobs or directories using actions run on remote
+    // execution workers.
+    // Requires the `resource_type` qualifier to be set, with support
+    // for the values `application/octet-stream` and `application/x-git`
+    // currently.
+    //
+    // The worker will require access to `wget` and `git` to fully
+    // support this fetcher.
     RemoteExecutionFetcherConfiguration remote_execution = 4;
   }
 
