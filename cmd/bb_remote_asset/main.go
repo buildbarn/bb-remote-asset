@@ -10,6 +10,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
+	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
@@ -44,9 +45,14 @@ func main() {
 	}
 
 	// Initialize CAS storage access
-	assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(config.AssetCache, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	contentAddressableStorageInfo, err := blobstore_configuration.NewBlobAccessFromConfiguration(config.ContentAddressableStorage, blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
 	if err != nil {
-		log.Fatalf("Failed to create asset store and CAS: %v", err)
+		log.Fatalf("Failed to create CAS blob access: %v", err)
+	}
+
+	assetStore, err := configuration.NewAssetStoreFromConfiguration(config.AssetCache, contentAddressableStorageInfo, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	if err != nil {
+		log.Fatalf("Failed to create asset store: %v", err)
 	}
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
@@ -58,7 +64,7 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorageInfo.BlobAccess, grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}

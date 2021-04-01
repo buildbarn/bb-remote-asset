@@ -9,10 +9,12 @@ import "pkg/proto/configuration/blobstore/blobstore.proto";
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch";
 
 message FetcherConfiguration {
-  oneof backend {
-    // Reads and writes to the AssetStore to return cached responses
-    CachingFetcherConfiguration caching = 1;
+  // Formerly used to specify caching fetcher, this is now implied by
+  // presence of asset store configuration in the main asset store
+  // config
+  reserved 1;
 
+  oneof backend {
     // Downloads blobs over HTTP and place them into a CAS for retrieval over
     // REv2 ReadBlobs requests.
     HttpFetcherConfiguration http = 2;
@@ -34,11 +36,6 @@ message FetcherConfiguration {
     // The worker will require access to `wget` and `git` to fully
     // support this fetcher.
     RemoteExecutionFetcherConfiguration remote_execution = 4;
-  }
-
-  message CachingFetcherConfiguration {
-    // Fetcher to wrap and cache results from
-    FetcherConfiguration fetcher = 1;
   }
 
   message HttpFetcherConfiguration {

@@ -24,17 +24,6 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	maximumMessageSizeBytes int) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
-	case *pb.FetcherConfiguration_Caching:
-		if assetStore == nil {
-			return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is not valid, caching fetcher is specified but asset store is not")
-		}
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, maximumMessageSizeBytes)
-		if err != nil {
-			return nil, err
-		}
-		fetcher = fetch.NewCachingFetcher(
-			innerFetcher,
-			assetStore)
 	case *pb.FetcherConfiguration_Http:
 		// TODO: Shift into utils lib as also used in main.go
 		allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
@@ -61,5 +50,9 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
 
-	return fetcher, nil
+	if assetStore != nil {
+		fetcher = fetch.NewCachingFetcher(fetcher, assetStore)
+	}
+	fetchServer := fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher))
+	return fetch.NewMetricsFetcher(fetchServer, clock.SystemClock, "fetch"), nil
 }

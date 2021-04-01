@@ -20,7 +20,10 @@ message ApplicationConfiguration {
   // gRPC servers to spawn to listen for remote asset API connections
   repeated buildbarn.configuration.grpc.ServerConfiguration grpc_servers = 3;
 
-  reserved 4;  // Used to be used for content addressable storage
+  // The content addressable storage in which the data of the assets
+  // are stored
+  buildbarn.configuration.blobstore.BlobAccessConfiguration
+      content_addressable_storage = 4;
 
   // Maximum Protobuf message size to unmarshal.
   int64 maximum_message_size_bytes = 5;
@@ -35,31 +38,18 @@ message ApplicationConfiguration {
   buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration fetcher =
       8;
 
+  // The configuration of the asset cache, may be omitted to have no
+  // caching of assets
   AssetCacheConfiguration asset_cache = 9;
 }
 
 message AssetCacheConfiguration {
   oneof backend {
-    BlobAccessBackedAssetStoreConfiguration blob_access = 1;
+    // Cache assets in a specific storage instance exclusively for
+    // caching assets
+    buildbarn.configuration.blobstore.BlobAccessConfiguration blob_access = 1;
 
-    ActionCacheBackedAssetStoreConfiguration action_cache = 2;
-
-    NoAssetCacheConfiguration cas_only = 3;
+    // Cache assets in an existing action cache
+    buildbarn.configuration.blobstore.BlobAccessConfiguration action_cache = 2;
   }
-}
-
-message BlobAccessBackedAssetStoreConfiguration {
-  buildbarn.configuration.blobstore.BlobAccessConfiguration asset_store = 1;
-
-  buildbarn.configuration.blobstore.BlobAccessConfiguration
-      content_addressable_storage = 2;
-}
-
-message ActionCacheBackedAssetStoreConfiguration {
-  buildbarn.configuration.blobstore.BlobstoreConfiguration blobstore = 1;
-}
-
-message NoAssetCacheConfiguration {
-  buildbarn.configuration.blobstore.BlobAccessConfiguration
-      content_addressable_storage = 1;
 }
