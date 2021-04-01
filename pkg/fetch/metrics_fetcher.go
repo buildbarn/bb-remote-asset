@@ -64,33 +64,25 @@ func NewMetricsFetcher(fetcher Fetcher, clock clock.Clock, name string) Fetcher 
 }
 
 func (mf *metricsFetcher) updateDurationSeconds(vec prometheus.ObserverVec, code codes.Code, timeStart time.Time, qualifiers []*remoteasset.Qualifier) {
-	if len(qualifiers) == 0 {
-		vec.WithLabelValues(code.String(), "N/A").Observe(mf.clock.Now().Sub(timeStart).Seconds())
-	} else {
-		resourceType := "N/A"
-		for _, qualifier := range qualifiers {
-			if qualifier.Name == "resource_type" {
-				resourceType = qualifier.Value
-				break
-			}
+	resourceType := "N/A"
+	for _, qualifier := range qualifiers {
+		if qualifier.Name == "resource_type" {
+			resourceType = qualifier.Value
+			break
 		}
-		vec.WithLabelValues(code.String(), resourceType).Observe(mf.clock.Now().Sub(timeStart).Seconds())
 	}
+	vec.WithLabelValues(code.String(), resourceType).Observe(mf.clock.Now().Sub(timeStart).Seconds())
 }
 
 func (mf *metricsFetcher) updateBlobSizeBytes(vec prometheus.ObserverVec, blobSize float64, qualifiers []*remoteasset.Qualifier) {
-	if len(qualifiers) == 0 {
-		vec.WithLabelValues("N/A").Observe(blobSize)
-	} else {
-		resourceType := "N/A"
-		for _, qualifier := range qualifiers {
-			if qualifier.Name == "resource_type" {
-				resourceType = qualifier.Value
-				break
-			}
+	resourceType := "N/A"
+	for _, qualifier := range qualifiers {
+		if qualifier.Name == "resource_type" {
+			resourceType = qualifier.Value
+			break
 		}
-		vec.WithLabelValues(resourceType).Observe(blobSize)
 	}
+	vec.WithLabelValues(resourceType).Observe(blobSize)
 }
 
 func (mf *metricsFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
