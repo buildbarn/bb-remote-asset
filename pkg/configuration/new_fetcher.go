@@ -8,6 +8,7 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 
@@ -53,6 +54,5 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	if assetStore != nil {
 		fetcher = fetch.NewCachingFetcher(fetcher, assetStore)
 	}
-	fetchServer := fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher))
-	return fetch.NewMetricsFetcher(fetchServer, clock.SystemClock, "fetch"), nil
+	return fetch.NewMetricsFetcher(fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher)), clock.SystemClock, "fetch"), nil
 }

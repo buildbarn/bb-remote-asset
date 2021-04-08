@@ -7,9 +7,9 @@ import (
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
-	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
+	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
@@ -50,9 +50,12 @@ func main() {
 		log.Fatalf("Failed to create CAS blob access: %v", err)
 	}
 
-	assetStore, err := configuration.NewAssetStoreFromConfiguration(config.AssetCache, contentAddressableStorageInfo, grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	if err != nil {
-		log.Fatalf("Failed to create asset store: %v", err)
+	var assetStore storage.AssetStore
+	if config.AssetCache != nil {
+		assetStore, err = configuration.NewAssetStoreFromConfiguration(config.AssetCache, contentAddressableStorageInfo, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+		if err != nil {
+			log.Fatalf("Failed to create asset store: %v", err)
+		}
 	}
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
@@ -68,12 +71,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
-	fetchServer = fetch.NewMetricsFetcher(
-		fetch.NewValidatingFetcher(
-			fetch.NewLoggingFetcher(fetchServer),
-		),
-		clock.SystemClock, "fetch",
-	)
 
 	var metricsPushServer remoteasset.PushServer
 	if assetStore != nil {

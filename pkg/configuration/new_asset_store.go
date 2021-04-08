@@ -14,9 +14,6 @@ import (
 // NewAssetStoreFromConfiguration creates an Asset Store from a
 // configuration and CAS
 func NewAssetStoreFromConfiguration(configuration *pb.AssetCacheConfiguration, contentAddressableStorage blobstore_configuration.BlobAccessInfo, grpcClientFactory grpc.ClientFactory, maximumMessageSizeBytes int) (storage.AssetStore, error) {
-	if configuration == nil {
-		return nil, nil
-	}
 	switch backend := configuration.Backend.(type) {
 	case *pb.AssetCacheConfiguration_BlobAccess:
 		assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, maximumMessageSizeBytes)
@@ -42,5 +39,4 @@ func NewAssetStoreFromConfiguration(configuration *pb.AssetCacheConfiguration, c
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Asset Cache configuration is invalid as no supported Asset Cache is defined.")
 	}
-	return nil, status.Errorf(codes.Internal, "Something went wrong creating Asset Cache.")
 }
