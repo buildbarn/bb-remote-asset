@@ -20,6 +20,34 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type headerMatcher struct {
+	headers map[string]string
+}
+
+func (hm *headerMatcher) String() string {
+	return "has headers"
+}
+
+func (hm *headerMatcher) Matches(x interface{}) bool {
+	req, ok := x.(*http.Request)
+	if !ok {
+		return false
+	}
+
+	for header, val := range hm.headers {
+		headerList, ok := req.Header[header]
+		if !ok {
+			return false
+		}
+
+		if headerList[0] != val {
+			return false
+		}
+	}
+
+	return true
+}
+
 func TestHTTPFetcherFetchBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
@@ -87,6 +115,39 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		_, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NotNil(t, err)
 		require.Equal(t, status.Code(err), codes.NotFound)
+	})
+
+	t.Run("WithAuthHeaders", func(t *testing.T) {
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: "",
+			Uris:         []string{uri},
+			Qualifiers: []*remoteasset.Qualifier{
+				{
+					Name:  "bazel.auth_headers",
+					Value: `{ "www.example.com": {"Authorization": "Bearer letmein"}}`,
+				},
+			},
+		}
+		matcher := &headerMatcher{
+			headers: map[string]string{
+				"Authorization": "Bearer letmein",
+			},
+		}
+		httpDoCall := httpClient.EXPECT().Do(matcher).Return(&http.Response{
+			Status:     "200 Success",
+			StatusCode: 200,
+			Body:       body,
+		}, nil)
+		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
+			copy(p, "Hello")
+			return 5, io.EOF
+		}).After(httpDoCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyReadCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.Nil(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
 	})
 }
 
