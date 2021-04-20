@@ -59,9 +59,14 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 		return nil, err
 	}
 
+	auth, err := getAuthHeaders(req.Qualifiers)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, uri := range req.Uris {
 
-		buffer, digest := hf.DownloadBlob(ctx, uri, instanceName, expectedDigest)
+		buffer, digest := hf.DownloadBlob(ctx, uri, instanceName, expectedDigest, auth)
 		if _, err = buffer.GetSizeBytes(); err != nil {
 			continue
 		}
@@ -85,14 +90,19 @@ func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.Fetc
 }
 
 func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
-	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri"}))
+	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri", "bazel.auth_headers"}))
 }
 
-func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string) (buffer.Buffer, bb_digest.Digest) {
+func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest
 	}
+
+	if auth != nil {
+		auth.ApplyHeaders(uri, req)
+	}
+
 	resp, err := hf.httpClient.Do(req)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest
@@ -141,4 +151,13 @@ func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func getAuthHeaders(qualifiers []*remoteasset.Qualifier) (*AuthHeaders, error) {
+	for _, qualifier := range qualifiers {
+		if qualifier.Name == "bazel.auth_headers" {
+			return NewAuthHeadersFromQualifier(qualifier.Value)
+		}
+	}
+	return nil, nil
 }
