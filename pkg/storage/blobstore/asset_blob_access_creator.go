@@ -3,6 +3,7 @@ package blobstore
 import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/blobstore/local"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 	pb "github.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore"
@@ -36,6 +37,10 @@ func (bac *assetBlobAccessCreator) GetReadBufferFactory() blobstore.ReadBufferFa
 
 func (bac *assetBlobAccessCreator) GetStorageTypeName() string {
 	return "asset"
+}
+
+func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(currentBlocks, newBlocks int) (local.BlockListGrowthPolicy, error) {
+	return local.NewImmutableBlockListGrowthPolicy(currentBlocks, newBlocks), nil
 }
 
 func (bac *assetBlobAccessCreator) NewCustomBlobAccess(config *pb.BlobAccessConfiguration) (configuration.BlobAccessInfo, string, error) {
