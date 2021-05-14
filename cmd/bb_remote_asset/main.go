@@ -7,16 +7,19 @@ import (
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
-	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
+	"github.com/buildbarn/bb-remote-asset/pkg/storage"
+	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/util"
+	protostatus "google.golang.org/genproto/googleapis/rpc/status"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 // timestampDelta is returned by the timestamp_proto_delta, returning a
@@ -44,9 +47,17 @@ func main() {
 	// Initialize CAS storage access
 	grpcClientFactory := bb_grpc.DefaultClientFactory
 
-	assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(config.AssetCache, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	contentAddressableStorageInfo, err := blobstore_configuration.NewBlobAccessFromConfiguration(config.ContentAddressableStorage, blobstore_configuration.NewCASBlobAccessCreator(grpcClientFactory, int(config.MaximumMessageSizeBytes)))
 	if err != nil {
-		log.Fatalf("Failed to create asset store and CAS: %v", err)
+		log.Fatalf("Failed to create CAS blob access: %v", err)
+	}
+
+	var assetStore storage.AssetStore
+	if config.AssetCache != nil {
+		assetStore, err = configuration.NewAssetStoreFromConfiguration(config.AssetCache, contentAddressableStorageInfo, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+		if err != nil {
+			log.Fatalf("Failed to create asset store: %v", err)
+		}
 	}
 
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
@@ -58,21 +69,23 @@ func main() {
 		allowUpdatesForInstances[instanceName] = true
 	}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorageInfo.BlobAccess, grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	if err != nil {
 		log.Fatal("Failed to initialize fetch server from configuration: ", err)
 	}
-	fetchServer = fetch.NewMetricsFetcher(
-		fetch.NewValidatingFetcher(
-			fetch.NewLoggingFetcher(fetchServer),
-		),
-		clock.SystemClock, "fetch",
-	)
 
-	pushServer := push.NewAssetPushServer(
-		assetStore,
-		allowUpdatesForInstances)
-	metricsPushServer := push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
+	var metricsPushServer remoteasset.PushServer
+	if assetStore != nil {
+		pushServer := push.NewAssetPushServer(
+			assetStore,
+			allowUpdatesForInstances)
+		metricsPushServer = push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
+	} else {
+		metricsPushServer = push.NewErrorPushServer(&protostatus.Status{
+			Code:    int32(codes.FailedPrecondition),
+			Message: "Server is not configured to allow pushing assets",
+		})
+	}
 
 	// Spawn gRPC servers for client and worker traffic.
 	go func() {

@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "error_push_server.go",
         "metrics_push_server.go",
         "push_server.go",
     ],
@@ -15,6 +16,7 @@ go_library(
         "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
         "@com_github_buildbarn_bb_storage//pkg/util:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@go_googleapis//google/rpc:status_go_proto",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
     ],

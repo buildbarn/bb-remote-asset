@@ -8,6 +8,7 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 
@@ -24,14 +25,6 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	maximumMessageSizeBytes int) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
-	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, maximumMessageSizeBytes)
-		if err != nil {
-			return nil, err
-		}
-		fetcher = fetch.NewCachingFetcher(
-			innerFetcher,
-			assetStore)
 	case *pb.FetcherConfiguration_Http:
 		// TODO: Shift into utils lib as also used in main.go
 		allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
@@ -58,5 +51,8 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
 
-	return fetcher, nil
+	if assetStore != nil {
+		fetcher = fetch.NewCachingFetcher(fetcher, assetStore)
+	}
+	return fetch.NewMetricsFetcher(fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher)), clock.SystemClock, "fetch"), nil
 }
