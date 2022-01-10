@@ -36,14 +36,12 @@ func main() {
 	if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
 		log.Fatalf("Failed to read configuration from %s: %s", os.Args[1], err)
 	}
-	lifecycleState, err := global.ApplyConfiguration(config.Global)
+	lifecycleState, grpcClientFactory, err := global.ApplyConfiguration(config.Global)
 	if err != nil {
 		log.Fatal("Failed to apply global configuration options: ", err)
 	}
 
 	// Initialize CAS storage access
-	grpcClientFactory := bb_grpc.DefaultClientFactory
-
 	assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(config.AssetCache, grpcClientFactory, int(config.MaximumMessageSizeBytes))
 	if err != nil {
 		log.Fatalf("Failed to create asset store and CAS: %v", err)
@@ -80,7 +78,7 @@ func main() {
 			"Client gRPC server failure: ",
 			bb_grpc.NewServersFromConfigurationAndServe(
 				config.GrpcServers,
-				func(s *grpc.Server) {
+				func(s grpc.ServiceRegistrar) {
 					// Register services
 					remoteasset.RegisterFetchServer(s, fetchServer)
 					remoteasset.RegisterPushServer(s, metricsPushServer)

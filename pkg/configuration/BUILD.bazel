@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "configuration",
     srcs = [
         "new_asset_store.go",
         "new_fetcher.go",
@@ -9,16 +9,16 @@ go_library(
     importpath = "github.com/buildbarn/bb-remote-asset/pkg/configuration",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/fetch:go_default_library",
-        "//pkg/proto/configuration/bb_remote_asset:go_default_library",
-        "//pkg/proto/configuration/bb_remote_asset/fetch:go_default_library",
-        "//pkg/storage:go_default_library",
-        "//pkg/storage/blobstore:go_default_library",
-        "@com_github_buildbarn_bb_storage//pkg/blobstore:go_default_library",
-        "@com_github_buildbarn_bb_storage//pkg/blobstore/configuration:go_default_library",
-        "@com_github_buildbarn_bb_storage//pkg/digest:go_default_library",
-        "@com_github_buildbarn_bb_storage//pkg/grpc:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "//pkg/fetch",
+        "//pkg/proto/configuration/bb_remote_asset",
+        "//pkg/proto/configuration/bb_remote_asset/fetch",
+        "//pkg/storage",
+        "//pkg/storage/blobstore",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/configuration",
+        "@com_github_buildbarn_bb_storage//pkg/digest",
+        "@com_github_buildbarn_bb_storage//pkg/grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
