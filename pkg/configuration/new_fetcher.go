@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
@@ -9,7 +8,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/clock"
-	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
@@ -24,35 +22,28 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	grpcClientFactory grpc.ClientFactory,
 	maximumMessageSizeBytes int) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
-	switch backend := configuration.Backend.(type) {
-	case *pb.FetcherConfiguration_Http:
-		// TODO: Shift into utils lib as also used in main.go
-		allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
-		for _, instance := range backend.Http.AllowUpdatesForInstances {
-			instanceName, err := bb_digest.NewInstanceName(instance)
+	if configuration == nil {
+		fetcher = fetch.DefaultFetcher
+	} else {
+		switch backend := configuration.Backend.(type) {
+		case *pb.FetcherConfiguration_Http:
+			fetcher = fetch.NewHTTPFetcher(
+				http.DefaultClient,
+				contentAddressableStorage)
+		case *pb.FetcherConfiguration_Error:
+			fetcher = fetch.NewErrorFetcher(backend.Error)
+		case *pb.FetcherConfiguration_RemoteExecution:
+			client, err := grpcClientFactory.NewClientFromConfiguration(backend.RemoteExecution.ExecutionClient)
 			if err != nil {
-				log.Fatalf("Invalid instance name %#v: %s", instance, err)
+				return nil, err
 			}
-			allowUpdatesForInstances[instanceName] = true
+			fetcher = fetch.NewRemoteExecutionFetcher(contentAddressableStorage, client, maximumMessageSizeBytes)
+		default:
+			return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 		}
-		fetcher = fetch.NewHTTPFetcher(
-			http.DefaultClient,
-			contentAddressableStorage,
-			allowUpdatesForInstances)
-	case *pb.FetcherConfiguration_Error:
-		fetcher = fetch.NewErrorFetcher(backend.Error)
-	case *pb.FetcherConfiguration_RemoteExecution:
-		client, err := grpcClientFactory.NewClientFromConfiguration(backend.RemoteExecution.ExecutionClient)
-		if err != nil {
-			return nil, err
-		}
-		fetcher = fetch.NewRemoteExecutionFetcher(contentAddressableStorage, client, maximumMessageSizeBytes)
-	default:
-		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
-
 	if assetStore != nil {
 		fetcher = fetch.NewCachingFetcher(fetcher, assetStore)
 	}
-	return fetch.NewMetricsFetcher(fetch.NewValidatingFetcher(fetch.NewLoggingFetcher(fetcher)), clock.SystemClock, "fetch"), nil
+	return fetch.NewMetricsFetcher(fetch.NewLoggingFetcher(fetch.NewValidatingFetcher(fetcher)), clock.SystemClock, "fetch"), nil
 }

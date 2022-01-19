@@ -31,7 +31,9 @@ message ApplicationConfiguration {
   // Common configuration options that apply to all Buildbarn binaries.
   buildbarn.configuration.global.Configuration global = 6;
 
-  // List of instances which can upload to the Cache.
+  // List of instances which can upload to the Cache
+  // If using an Action Cache backend, uploads may still fail if the
+  // Action Cache does not allow uploads from the instance name used.
   repeated string allow_updates_for_instances = 7;
 
   // Configuration for remote asset FetchServer
