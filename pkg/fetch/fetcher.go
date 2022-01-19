@@ -21,4 +21,6 @@ type Fetcher interface {
 	CheckQualifiers(qualifier.Set) qualifier.Set
 }
 
+// DefaultFetcher returns a NotImplemented error and a message that
+// fetching is not configured
 var DefaultFetcher = NewErrorFetcher(&protostatus.Status{Code: 12, Message: "Fetching is not configured for this server"})
