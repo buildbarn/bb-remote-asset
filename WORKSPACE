@@ -10,16 +10,6 @@ http_archive(
 )
 
 http_archive(
-    name = "bazel_toolchains",
-    sha256 = "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
-    strip_prefix = "bazel-toolchains-0.27.1",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-    ],
-)
-
-http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
     urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
@@ -43,16 +33,16 @@ http_archive(
     ],
 )
 
+# gazelle:repository_macro go_dependencies.bzl%go_dependencies
+load("//:go_dependencies.bzl", "go_dependencies")
+
+go_dependencies()
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()
 
 go_register_toolchains(version = "1.20.1")
-
-# gazelle:repository_macro go_dependencies.bzl%go_dependencies
-load("//:go_dependencies.bzl", "go_dependencies")
-
-go_dependencies()
 
 load(
     "@io_bazel_rules_docker//repositories:repositories.bzl",
@@ -72,6 +62,17 @@ gazelle_dependencies()
 load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
 
 _go_image_repos()
+
+http_archive(
+    name = "com_github_bazelbuild_buildtools",
+    sha256 = "09a94213ea0d4a844e991374511fb0d44650e9c321799ec5d5dd28b250d82ca3",
+    strip_prefix = "buildtools-5.0.0",
+    url = "https://github.com/bazelbuild/buildtools/archive/5.0.0.tar.gz",
+)
+
+load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
+
+buildifier_dependencies()
 
 load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
 
@@ -93,21 +94,18 @@ protobuf_deps()
 
 http_archive(
     name = "com_grail_bazel_toolchain",
-    sha256 = "b3dec631fe2be45b3a7a8a4161dd07fadc68825842e8d6305ed35bc8560968ca",
-    strip_prefix = "bazel-toolchain-0.5.1",
-    urls = ["https://github.com/grailbio/bazel-toolchain/archive/0.5.1.tar.gz"],
+    canonical_id = "0.7.2",
+    sha256 = "f7aa8e59c9d3cafde6edb372d9bd25fb4ee7293ab20b916d867cd0baaa642529",
+    strip_prefix = "bazel-toolchain-0.7.2",
+    url = "https://github.com/grailbio/bazel-toolchain/archive/0.7.2.tar.gz",
 )
 
 load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
 
 llvm_toolchain(
     name = "llvm_toolchain",
-    llvm_version = "9.0.0",
+    llvm_version = "14.0.0",
 )
-
-load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
-
-go_embed_data_dependencies()
 
 http_archive(
     name = "io_bazel_rules_jsonnet",
@@ -135,4 +133,55 @@ http_archive(
     sha256 = "7b6ea252f0b8fb5cd722f45feb83e115b689909bbb6a393a873b6cbad4ceae1d",
     strip_prefix = "googleapis-143084a2624b6591ee1f9d23e7f5241856642f4d",
     urls = ["https://github.com/googleapis/googleapis/archive/143084a2624b6591ee1f9d23e7f5241856642f4d.zip"],
+)
+
+http_archive(
+    name = "com_github_twbs_bootstrap",
+    build_file_content = """exports_files(["css/bootstrap.min.css", "js/bootstrap.min.js"])""",
+    sha256 = "395342b2974e3350560e65752d36aab6573652b11cc6cb5ef79a2e5e83ad64b1",
+    strip_prefix = "bootstrap-5.1.0-dist",
+    urls = ["https://github.com/twbs/bootstrap/releases/download/v5.1.0/bootstrap-5.1.0-dist.zip"],
+)
+
+http_archive(
+    name = "aspect_rules_js",
+    sha256 = "00e7b97b696af63812df0ca9e9dbd18579f3edd3ab9a56f227238b8405e4051c",
+    strip_prefix = "rules_js-1.23.0",
+    url = "https://github.com/aspect-build/rules_js/releases/download/v1.23.0/rules_js-v1.23.0.tar.gz",
+)
+
+load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
+
+rules_js_dependencies()
+
+load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
+
+nodejs_register_toolchains(
+    name = "nodejs",
+    node_version = DEFAULT_NODE_VERSION,
+)
+
+load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock")
+
+npm_translate_lock(
+    name = "npm",
+    pnpm_lock = "//:pnpm-lock.yaml",
+)
+
+load("@npm//:repositories.bzl", "npm_repositories")
+
+npm_repositories()
+
+http_archive(
+    name = "io_opentelemetry_proto",
+    build_file_content = """
+proto_library(
+    name = "common_proto",
+    srcs = ["opentelemetry/proto/common/v1/common.proto"],
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "464bc2b348e674a1a03142e403cbccb01be8655b6de0f8bfe733ea31fcd421be",
+    strip_prefix = "opentelemetry-proto-0.19.0",
+    urls = ["https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v0.19.0.tar.gz"],
 )
