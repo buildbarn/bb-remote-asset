@@ -18,19 +18,24 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/util"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+type httpDoer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 type httpFetcher struct {
-	httpClient                blobstore.HTTPClient
+	httpClient                httpDoer
 	contentAddressableStorage blobstore.BlobAccess
 	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
 // NewHTTPFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
-func NewHTTPFetcher(httpClient blobstore.HTTPClient,
+func NewHTTPFetcher(httpClient httpDoer,
 	contentAddressableStorage blobstore.BlobAccess,
 	allowUpdatesForInstances map[bb_digest.InstanceName]bool) Fetcher {
 	return &httpFetcher{
@@ -128,7 +133,11 @@ func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceNam
 			status.Errorf(codes.PermissionDenied, "Checksum invalid for fetched blob. Expected: %s, Found: %s", expectedDigest, hexHash)), bb_digest.BadDigest
 	}
 
-	digest, err := instanceName.NewDigest(hexHash, int64(nBytes))
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(hexHash))
+	if err != nil {
+		return buffer.NewBufferFromError(util.StatusWrapfWithCode(err, codes.Internal, "Failed to get digest function for instance: %v", instanceName)), bb_digest.BadDigest
+	}
+	digest, err := digestFunction.NewDigest(hexHash, int64(nBytes))
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Digest Creation failed")), bb_digest.BadDigest
 	}

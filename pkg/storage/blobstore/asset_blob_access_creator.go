@@ -1,8 +1,13 @@
 package blobstore
 
 import (
+	"sync"
+
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	"github.com/buildbarn/bb-storage/pkg/blobstore/local"
+	"github.com/buildbarn/bb-storage/pkg/capabilities"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 	pb "github.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore"
@@ -38,10 +43,24 @@ func (bac *assetBlobAccessCreator) GetStorageTypeName() string {
 	return "asset"
 }
 
-func (bac *assetBlobAccessCreator) NewCustomBlobAccess(config *pb.BlobAccessConfiguration) (configuration.BlobAccessInfo, string, error) {
+func (bac *assetBlobAccessCreator) NewCustomBlobAccess(config *pb.BlobAccessConfiguration, creator configuration.NestedBlobAccessCreator) (configuration.BlobAccessInfo, string, error) {
 	return configuration.BlobAccessInfo{}, "", status.Error(codes.InvalidArgument, "Configuration did not contain a supported storage backend")
 }
 
 func (bac *assetBlobAccessCreator) WrapTopLevelBlobAccess(blobAccess blobstore.BlobAccess) blobstore.BlobAccess {
 	return blobAccess
+}
+
+func (bac *assetBlobAccessCreator) GetDefaultCapabilitiesProvider() capabilities.Provider {
+	return capabilities.NewStaticProvider(&remoteexecution.ServerCapabilities{
+		// TODO: what are the capabilities?
+	})
+}
+
+func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(int, int) (local.BlockListGrowthPolicy, error) {
+	return nil, status.Error(codes.Unimplemented, "NewBlockListGrowthPolicy unimplemeted for assetBlobAccessCreator")
+}
+
+func (bac *assetBlobAccessCreator) NewHierarchicalInstanceNamesLocalBlobAccess(local.KeyLocationMap, local.LocationBlobMap, *sync.RWMutex) (blobstore.BlobAccess, error) {
+	return nil, status.Error(codes.Unimplemented, "NewHierarchicalInstanceNamesLocalBlobAccess unimplemeted for assetBlobAccessCreator")
 }

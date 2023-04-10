@@ -34,7 +34,11 @@ func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.B
 }
 
 func (rs *actionCacheAssetStore) assetToDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) (*remoteexecution.Directory, error) {
-	digest, err := instance.NewDigestFromProto(asset.Digest)
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(asset.GetDigest().GetHash()))
+	if err != nil {
+		return nil, err
+	}
+	digest, err := digestFunction.NewDigestFromProto(asset.Digest)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +59,11 @@ func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *rem
 	}
 	// If the required output directory is present
 	if digest.Hash != "" {
-		treeDigest, err := instance.NewDigestFromProto(digest)
+		digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(digest.Hash))
+		if err != nil {
+			return nil, err
+		}
+		treeDigest, err := digestFunction.NewDigestFromProto(digest)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +135,11 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return nil, err
 	}
-	digest, err := instance.NewDigestFromProto(actionDigest)
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(actionDigest.GetHash()))
+	if err != nil {
+		return nil, err
+	}
+	digest, err := digestFunction.NewDigestFromProto(actionDigest)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +154,10 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 }
 
 func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error {
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(data.GetDigest().GetHash()))
+	if err != nil {
+		return err
+	}
 	// Create asset reference using only the qualifiers of the request
 	qualifierReference := NewAssetReference(nil, ref.Qualifiers)
 	refDigest, err := ProtoToDigest(qualifierReference)
@@ -179,7 +195,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return err
 	}
-	bbDirectoryDigest, err := instance.NewDigestFromProto(directoryDigest)
+	bbDirectoryDigest, err := digestFunction.NewDigestFromProto(directoryDigest)
 	if err != nil {
 		return nil
 	}
@@ -214,7 +230,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return err
 	}
-	bbActionDigest, err := instance.NewDigestFromProto(actionDigest)
+	bbActionDigest, err := digestFunction.NewDigestFromProto(actionDigest)
 	if err != nil {
 		return err
 	}
@@ -231,7 +247,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return err
 	}
-	bbCommandDigest, err := instance.NewDigestFromProto(commandDigest)
+	bbCommandDigest, err := digestFunction.NewDigestFromProto(commandDigest)
 	if err != nil {
 		return err
 	}
@@ -263,7 +279,7 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 		if err != nil {
 			return err
 		}
-		bbTreeDigest, err := instance.NewDigestFromProto(treeDigest)
+		bbTreeDigest, err := digestFunction.NewDigestFromProto(treeDigest)
 		if err != nil {
 			return err
 		}
@@ -305,7 +321,11 @@ func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, directory 
 }
 
 func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context, instance digest.InstanceName, node *remoteexecution.DirectoryNode) ([]*remoteexecution.Directory, error) {
-	digest, err := instance.NewDigestFromProto(node.Digest)
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(node.GetDigest().GetHash()))
+	if err != nil {
+		return nil, err
+	}
+	digest, err := digestFunction.NewDigestFromProto(node.Digest)
 	if err != nil {
 		return nil, err
 	}

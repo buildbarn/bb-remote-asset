@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -14,9 +15,12 @@ import (
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
+	"github.com/buildbarn/bb-storage/pkg/program"
 	"github.com/buildbarn/bb-storage/pkg/util"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // timestampDelta is returned by the timestamp_proto_delta, returning a
@@ -28,64 +32,73 @@ type timestampDelta struct {
 }
 
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatal("Usage: bb_remote_asset bb_remote_asset.jsonnet")
-	}
-	var config bb_remote_asset.ApplicationConfiguration
-	var err error
-	if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
-		log.Fatalf("Failed to read configuration from %s: %s", os.Args[1], err)
-	}
-	lifecycleState, err := global.ApplyConfiguration(config.Global)
-	if err != nil {
-		log.Fatal("Failed to apply global configuration options: ", err)
-	}
-
-	// Initialize CAS storage access
-	grpcClientFactory := bb_grpc.DefaultClientFactory
-
-	assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(config.AssetCache, grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	if err != nil {
-		log.Fatalf("Failed to create asset store and CAS: %v", err)
-	}
-
-	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
-	for _, instance := range config.AllowUpdatesForInstances {
-		instanceName, err := bb_digest.NewInstanceName(instance)
-		if err != nil {
-			log.Fatalf("Invalid instance name %#v: %s", instance, err)
+	program.Run(func(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
+		if len(os.Args) != 2 {
+			return status.Error(codes.InvalidArgument, "Usage: bb_remote_asset bb_remote_asset.jsonnet")
 		}
-		allowUpdatesForInstances[instanceName] = true
-	}
+		var config bb_remote_asset.ApplicationConfiguration
+		var err error
+		if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
+			util.StatusWrapf(err, "Failed to read configuration from %s", os.Args[1])
+		}
+		lifecycleState, grpcClientFactory, err := global.ApplyConfiguration(config.Global)
+		if err != nil {
+			util.StatusWrap(err, "Failed to apply global configuration options")
+		}
 
-	fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
-	if err != nil {
-		log.Fatal("Failed to initialize fetch server from configuration: ", err)
-	}
-	fetchServer = fetch.NewMetricsFetcher(
-		fetch.NewValidatingFetcher(
-			fetch.NewLoggingFetcher(fetchServer),
-		),
-		clock.SystemClock, "fetch",
-	)
+		assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(
+			config.AssetCache,
+			grpcClientFactory,
+			int(config.MaximumMessageSizeBytes),
+			dependenciesGroup,
+		)
+		if err != nil {
+			util.StatusWrap(err, "Failed to create asset store and CAS")
+		}
 
-	pushServer := push.NewAssetPushServer(
-		assetStore,
-		allowUpdatesForInstances)
-	metricsPushServer := push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
+		allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
+		for _, instance := range config.AllowUpdatesForInstances {
+			instanceName, err := bb_digest.NewInstanceName(instance)
+			if err != nil {
+				util.StatusWrapf(err, "Invalid instance name %#v", instance)
+			}
+			allowUpdatesForInstances[instanceName] = true
+		}
 
-	// Spawn gRPC servers for client and worker traffic.
-	go func() {
-		log.Fatal(
-			"Client gRPC server failure: ",
-			bb_grpc.NewServersFromConfigurationAndServe(
-				config.GrpcServers,
-				func(s *grpc.Server) {
-					// Register services
-					remoteasset.RegisterFetchServer(s, fetchServer)
-					remoteasset.RegisterPushServer(s, metricsPushServer)
-				}))
-	}()
+		fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+		if err != nil {
+			util.StatusWrap(err, "Failed to initialize fetch server from configuration")
+		}
+		fetchServer = fetch.NewMetricsFetcher(
+			fetch.NewValidatingFetcher(
+				fetch.NewLoggingFetcher(fetchServer),
+			),
+			clock.SystemClock, "fetch",
+		)
 
-	lifecycleState.MarkReadyAndWait()
+		pushServer := push.NewAssetPushServer(
+			assetStore,
+			allowUpdatesForInstances)
+		metricsPushServer := push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
+
+		// Spawn gRPC servers for client and worker traffic.
+		go func() {
+			log.Fatal(
+				"Client gRPC server failure: ",
+				bb_grpc.NewServersFromConfigurationAndServe(
+					config.GrpcServers,
+					func(s grpc.ServiceRegistrar) {
+						// Register services
+						remoteasset.RegisterFetchServer(s, fetchServer)
+						remoteasset.RegisterPushServer(s, metricsPushServer)
+					},
+					siblingsGroup,
+				))
+		}()
+
+		lifecycleState.MarkReadyAndWait()
+
+		// TODO: is this correct?
+		return nil
+	})
 }
