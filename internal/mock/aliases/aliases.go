@@ -2,6 +2,7 @@ package aliases
 
 import (
 	"io"
+	"net/http"
 )
 
 // This file contains aliases for some of the interfaces provided by the
@@ -12,3 +13,6 @@ import (
 
 // ReadCloser is an alias of io.ReadCloser.
 type ReadCloser = io.ReadCloser
+
+// RoundTripper is an alias of http.RoundTripper.
+type RoundTripper = http.RoundTripper

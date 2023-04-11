@@ -5,6 +5,7 @@ package buildbarn.configuration.bb_remote_asset.fetch;
 import "google/rpc/status.proto";
 import "pkg/proto/configuration/grpc/grpc.proto";
 import "pkg/proto/configuration/blobstore/blobstore.proto";
+import "pkg/proto/configuration/http/http.proto";
 
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch";
 
@@ -48,6 +49,9 @@ message FetcherConfiguration {
 
     // List of instances which can trigger an upload to the CAS
     repeated string allow_updates_for_instances = 2;
+
+    // Optional: Options to be used by the HTTP client.
+    buildbarn.configuration.http.ClientConfiguration client = 3;
   }
 
   message RemoteExecutionFetcherConfiguration {

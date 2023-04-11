@@ -96,7 +96,7 @@ func main() {
 				))
 		}()
 
-		lifecycleState.MarkReadyAndWait()
+		lifecycleState.MarkReadyAndWait(siblingsGroup)
 
 		// TODO: is this correct?
 		return nil

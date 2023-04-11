@@ -23,19 +23,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type httpDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
 type httpFetcher struct {
-	httpClient                httpDoer
+	httpClient                *http.Client
 	contentAddressableStorage blobstore.BlobAccess
 	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
 // NewHTTPFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
-func NewHTTPFetcher(httpClient httpDoer,
+func NewHTTPFetcher(httpClient *http.Client,
 	contentAddressableStorage blobstore.BlobAccess,
 	allowUpdatesForInstances map[bb_digest.InstanceName]bool) Fetcher {
 	return &httpFetcher{

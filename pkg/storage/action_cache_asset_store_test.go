@@ -29,24 +29,40 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 		Hash:      "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643",
 		SizeBytes: 111,
 	}
-	bbBlobDigest := digest.MustNewDigest("", blobDigest.Hash,
-		blobDigest.SizeBytes)
+	bbBlobDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
+		blobDigest.Hash,
+		blobDigest.SizeBytes,
+	)
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
 	assetData := storage.NewAsset(blobDigest, ptypes.TimestampNow())
-	refDigest := digest.MustNewDigest("",
+	refDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"a2c2b32a289d4d9bf6e6309ed2691b6bcc04ee7923fcfd81bf1bfe0e7348139b",
-		14)
-	directoryDigest := digest.MustNewDigest("",
+		14,
+	)
+	directoryDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"c72e5e1e6ab54746d4fd3da7b443037187c81347a210d2ab8e5863638fbe1ac6",
-		88)
-	actionDigest := digest.MustNewDigest("",
+		88,
+	)
+	actionDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"ae2ece643d2907102b1949f00721514cdda44ce7cb2c03ccd2af4dac45792d09",
-		140)
-	commandDigest := digest.MustNewDigest("",
+		140,
+	)
+	commandDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"e6842def39984b212641b9796c162b9e3085da84257bae614418f2255b0addc5",
-		38)
+		38,
+	)
 
 	ac := mock.NewMockBlobAccess(ctrl)
 	cas := mock.NewMockBlobAccess(ctrl)
@@ -85,27 +101,47 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 		Hash:      "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643",
 		SizeBytes: 111,
 	}
-	bbRootDirectoryDigest := digest.MustNewDigest("",
-		rootDirectoryDigest.Hash, rootDirectoryDigest.SizeBytes)
+	bbRootDirectoryDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
+		rootDirectoryDigest.Hash,
+		rootDirectoryDigest.SizeBytes,
+	)
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
 	assetData := storage.NewAsset(rootDirectoryDigest,
 		ptypes.TimestampNow())
-	refDigest := digest.MustNewDigest("",
+	refDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"a2c2b32a289d4d9bf6e6309ed2691b6bcc04ee7923fcfd81bf1bfe0e7348139b",
-		14)
-	directoryDigest := digest.MustNewDigest("",
+		14,
+	)
+	directoryDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"c72e5e1e6ab54746d4fd3da7b443037187c81347a210d2ab8e5863638fbe1ac6",
-		88)
-	actionDigest := digest.MustNewDigest("",
+		88,
+	)
+	actionDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"ae2ece643d2907102b1949f00721514cdda44ce7cb2c03ccd2af4dac45792d09",
-		140)
-	commandDigest := digest.MustNewDigest("",
+		140,
+	)
+	commandDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"e6842def39984b212641b9796c162b9e3085da84257bae614418f2255b0addc5",
-		38)
-	bbTreeDigest := digest.MustNewDigest("",
-		"102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604", 2)
+		38,
+	)
+	bbTreeDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
+		"102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604",
+		2,
+	)
 	treeDigest := &remoteexecution.Digest{
 		Hash:      "102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604",
 		SizeBytes: 2,
@@ -152,9 +188,12 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{})
-	actionDigest := digest.MustNewDigest("",
+	actionDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"1543af664d856ac553f43cca0f61b3b948bafd6802308d67f42bbc09cd042218",
-		140)
+		140,
+	)
 
 	ts, _ := ptypes.TimestampProto(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
@@ -187,15 +226,21 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 		Hash:      "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
 		SizeBytes: 222,
 	}
-	bbTreeDigest := digest.MustNewDigest("",
+	bbTreeDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
-		222)
+		222,
+	)
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{})
-	actionDigest := digest.MustNewDigest("",
+	actionDigest := digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
 		"1543af664d856ac553f43cca0f61b3b948bafd6802308d67f42bbc09cd042218",
-		140)
+		140,
+	)
 
 	ts, _ := ptypes.TimestampProto(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{

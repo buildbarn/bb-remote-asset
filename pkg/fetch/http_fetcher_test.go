@@ -2,6 +2,7 @@ package fetch_test
 
 import (
 	"context"
+	"github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"io"
 	"net/http"
 	"testing"
@@ -60,14 +61,19 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		Uris:         []string{uri, "www.another.com"},
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
-	httpClient := mock.NewMockHTTPClient(ctrl)
+	roundTripper := mock.NewMockRoundTripper(ctrl)
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{instanceName: true}
-	HTTPFetcher := fetch.NewHTTPFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess, allowUpdatesForInstances)
 	body := mock.NewMockReadCloser(ctrl)
-	helloDigest := bb_digest.MustNewDigest("", "185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969", 5)
+	helloDigest := bb_digest.MustNewDigest(
+		"",
+		remoteexecution.DigestFunction_SHA256,
+		"185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969",
+		5,
+	)
 
 	t.Run("Success", func(t *testing.T) {
-		httpDoCall := httpClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:     "200 Success",
 			StatusCode: 200,
 			Body:       body,
@@ -85,11 +91,11 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	})
 
 	t.Run("OneFailOneSuccess", func(t *testing.T) {
-		httpFailCall := httpClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+		httpFailCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:     "404 Not Found",
 			StatusCode: 404,
 		}, nil)
-		httpSuccessCall := httpClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+		httpSuccessCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:     "200 Success",
 			StatusCode: 200,
 			Body:       body,
@@ -107,7 +113,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	})
 
 	t.Run("Failure", func(t *testing.T) {
-		httpClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+		roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:     "404 Not Found",
 			StatusCode: 404,
 		}, nil).MaxTimes(2)
@@ -133,7 +139,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				"Authorization": "Bearer letmein",
 			},
 		}
-		httpDoCall := httpClient.EXPECT().Do(matcher).Return(&http.Response{
+		httpDoCall := roundTripper.EXPECT().RoundTrip(matcher).Return(&http.Response{
 			Status:     "200 Success",
 			StatusCode: 200,
 			Body:       body,
@@ -163,9 +169,9 @@ func TestHTTPFetcherFetchDirectory(t *testing.T) {
 		Uris:         []string{uri, "www.another.com"},
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
-	httpClient := mock.NewMockHTTPClient(ctrl)
+	roundTripper := mock.NewMockRoundTripper(ctrl)
 	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{instanceName: true}
-	HTTPFetcher := fetch.NewHTTPFetcher(httpClient, casBlobAccess, allowUpdatesForInstances)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess, allowUpdatesForInstances)
 	_, err = HTTPFetcher.FetchDirectory(ctx, request)
 	require.NotNil(t, err)
 	require.Equal(t, status.Code(err), codes.PermissionDenied)

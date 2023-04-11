@@ -10,6 +10,7 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
+	bb_http "github.com/buildbarn/bb-storage/pkg/http"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,8 +43,12 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			}
 			allowUpdatesForInstances[instanceName] = true
 		}
+		roundTripper, err := bb_http.NewRoundTripperFromConfiguration(backend.Http.Client)
+		if err != nil {
+			return nil, err
+		}
 		fetcher = fetch.NewHTTPFetcher(
-			http.DefaultClient,
+			&http.Client{Transport: roundTripper},
 			contentAddressableStorage,
 			allowUpdatesForInstances)
 	case *pb.FetcherConfiguration_Error:

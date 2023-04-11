@@ -10,7 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/storage",
-        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:asset",
         "@com_github_buildbarn_bb_storage//pkg/clock",
         "@com_github_buildbarn_bb_storage//pkg/digest",
         "@com_github_buildbarn_bb_storage//pkg/util",
@@ -28,7 +28,7 @@ go_test(
         "//internal/mock",
         "//pkg/proto/asset",
         "//pkg/storage",
-        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:go_default_library",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:asset",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer",
         "@com_github_buildbarn_bb_storage//pkg/digest",
