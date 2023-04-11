@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"time"
 
@@ -82,23 +81,19 @@ func main() {
 		metricsPushServer := push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
 
 		// Spawn gRPC servers for client and worker traffic.
-		go func() {
-			log.Fatal(
-				"Client gRPC server failure: ",
-				bb_grpc.NewServersFromConfigurationAndServe(
-					config.GrpcServers,
-					func(s grpc.ServiceRegistrar) {
-						// Register services
-						remoteasset.RegisterFetchServer(s, fetchServer)
-						remoteasset.RegisterPushServer(s, metricsPushServer)
-					},
-					siblingsGroup,
-				))
-		}()
+		if err := bb_grpc.NewServersFromConfigurationAndServe(
+			config.GrpcServers,
+			func(s grpc.ServiceRegistrar) {
+				// Register services
+				remoteasset.RegisterFetchServer(s, fetchServer)
+				remoteasset.RegisterPushServer(s, metricsPushServer)
+			},
+			siblingsGroup,
+		); err != nil {
+			return util.StatusWrap(err, "gRPC server failure")
+		}
 
 		lifecycleState.MarkReadyAndWait(siblingsGroup)
-
-		// TODO: is this correct?
 		return nil
 	})
 }

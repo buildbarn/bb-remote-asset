@@ -50,6 +50,10 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 		if err != nil {
 			return nil, "", "", err
 		}
+		commandDigestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(commandDigest.GetHash()))
+		if err != nil {
+			return nil, "", "", err
+		}
 
 		action := &remoteexecution.Action{
 			CommandDigest:   commandDigest,
@@ -70,12 +74,12 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			return nil, "", "", err
 		}
 
-		digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(actionDigest.GetHash()))
+		actionDigestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(actionDigest.GetHash()))
 		if err != nil {
 			return nil, "", "", err
 		}
-	
-		bbActionDigest, err := digestFunction.NewDigestFromProto(actionDigest)
+
+		bbActionDigest, err := actionDigestFunction.NewDigestFromProto(actionDigest)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -84,7 +88,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			return nil, "", "", err
 		}
 
-		bbCommandDigest, err := digestFunction.NewDigestFromProto(commandDigest)
+		bbCommandDigest, err := commandDigestFunction.NewDigestFromProto(commandDigest)
 		if err != nil {
 			return nil, "", "", err
 		}
