@@ -38,11 +38,11 @@ func main() {
 		var config bb_remote_asset.ApplicationConfiguration
 		var err error
 		if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
-			util.StatusWrapf(err, "Failed to read configuration from %s", os.Args[1])
+			return util.StatusWrapf(err, "Failed to read configuration from %s", os.Args[1])
 		}
 		lifecycleState, grpcClientFactory, err := global.ApplyConfiguration(config.Global)
 		if err != nil {
-			util.StatusWrap(err, "Failed to apply global configuration options")
+			return util.StatusWrap(err, "Failed to apply global configuration options")
 		}
 
 		assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(
@@ -52,21 +52,21 @@ func main() {
 			dependenciesGroup,
 		)
 		if err != nil {
-			util.StatusWrap(err, "Failed to create asset store and CAS")
+			return util.StatusWrap(err, "Failed to create asset store and CAS")
 		}
 
 		allowUpdatesForInstances := map[bb_digest.InstanceName]bool{}
 		for _, instance := range config.AllowUpdatesForInstances {
 			instanceName, err := bb_digest.NewInstanceName(instance)
 			if err != nil {
-				util.StatusWrapf(err, "Invalid instance name %#v", instance)
+				return util.StatusWrapf(err, "Invalid instance name %#v", instance)
 			}
 			allowUpdatesForInstances[instanceName] = true
 		}
 
 		fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
 		if err != nil {
-			util.StatusWrap(err, "Failed to initialize fetch server from configuration")
+			return util.StatusWrap(err, "Failed to initialize fetch server from configuration")
 		}
 		fetchServer = fetch.NewMetricsFetcher(
 			fetch.NewValidatingFetcher(
