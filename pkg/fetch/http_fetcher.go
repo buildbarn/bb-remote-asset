@@ -91,7 +91,7 @@ func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.Fetc
 }
 
 func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
-	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri", "bazel.auth_headers"}))
+	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri", "bazel.auth_headers", "bazel.canonical_id"}))
 }
 
 func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
