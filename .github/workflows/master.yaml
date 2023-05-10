@@ -1,32 +1,47 @@
 {
    "jobs": {
       "build_and_test": {
-         "container": "docker://l.gcr.io/google/bazel:3.3.1",
          "runs-on": "ubuntu-latest",
          "steps": [
+            {
+               "name": "Installing Bazel",
+               "run": "curl -L https://github.com/bazelbuild/bazel/releases/download/6.0.0/bazel-6.0.0-linux-x86_64 > ~/bazel && chmod +x ~/bazel && echo ~ >> ${GITHUB_PATH}"
+            },
             {
                "name": "Check out source code",
                "uses": "actions/checkout@v1"
             },
             {
-               "name": "Buildifier",
-               "run": "bazel run @com_github_bazelbuild_buildtools//:buildifier"
+               "name": "Restore Bazel cache",
+               "uses": "actions/cache@v1",
+               "with": {
+                  "key": "bazel",
+                  "path": "~/.cache/bazel"
+               }
             },
             {
                "name": "Gazelle",
                "run": "bazel run //:gazelle -- update-repos -from_file=go.mod -to_macro go_dependencies.bzl%go_dependencies -prune && bazel run //:gazelle"
             },
             {
+               "name": "Buildifier",
+               "run": "sed '/^$/d' go_dependencies.bzl > go_dependencies.bzl.new && mv go_dependencies.bzl.new go_dependencies.bzl && bazel run @com_github_bazelbuild_buildtools//:buildifier"
+            },
+            {
                "name": "Gofmt",
-               "run": "bazel run @cc_mvdan_gofumpt//:gofumpt -- -s -w -extra $(pwd)"
+               "run": "bazel run @cc_mvdan_gofumpt//:gofumpt -- -lang 1.19 -w -extra $(pwd)"
             },
             {
                "name": "Clang format",
-               "run": "find . -name '*.proto' -exec bazel run @llvm_toolchain//:bin/clang-format -- -i {} +"
+               "run": "find . -name '*.proto' -exec bazel run @llvm_toolchain_llvm//:bin/clang-format -- -i {} +"
             },
             {
                "name": "GitHub workflows",
-               "run": "bazel build //tools/github_workflows && cp bazel-bin/tools/github_workflows/* .github/workflows"
+               "run": "bazel build //tools/github_workflows && cp bazel-bin/tools/github_workflows/*.yaml .github/workflows"
+            },
+            {
+               "name": "Protobuf generation",
+               "run": "find . bazel-bin/pkg/proto -name '*.pb.go' -delete || true\nbazel build $(bazel query 'kind(\"go_proto_library\", //...)')\nfind bazel-bin/pkg/proto -name '*.pb.go' | while read f; do\n  cat $f > $(echo $f | sed -e 's|.*/pkg/proto/|pkg/proto/|')\ndone\n"
             },
             {
                "name": "Test style conformance",
@@ -42,11 +57,11 @@
             },
             {
                "name": "linux_amd64: build and test",
-               "run": "bazel test --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 //..."
+               "run": "bazel test --test_output=errors --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 //..."
             },
             {
                "name": "linux_amd64: copy bb_remote_asset",
-               "run": "bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
             },
             {
                "name": "linux_amd64: upload bb_remote_asset",
@@ -57,12 +72,60 @@
                }
             },
             {
+               "name": "linux_386: build and test",
+               "run": "bazel test --test_output=errors --platforms=@io_bazel_rules_go//go/toolchain:linux_386 //..."
+            },
+            {
+               "name": "linux_386: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:linux_386 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "name": "linux_386: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v2-preview",
+               "with": {
+                  "name": "bb_remote_asset.linux_386",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
+               "name": "linux_arm: build and test",
+               "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:linux_arm //..."
+            },
+            {
+               "name": "linux_arm: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:linux_arm //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "name": "linux_arm: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v2-preview",
+               "with": {
+                  "name": "bb_remote_asset.linux_arm",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
+               "name": "linux_arm64: build and test",
+               "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64 //..."
+            },
+            {
+               "name": "linux_arm64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "name": "linux_arm64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v2-preview",
+               "with": {
+                  "name": "bb_remote_asset.linux_arm64",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
                "name": "darwin_amd64: build and test",
                "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:darwin_amd64 //..."
             },
             {
                "name": "darwin_amd64: copy bb_remote_asset",
-               "run": "bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:darwin_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:darwin_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
             },
             {
                "name": "darwin_amd64: upload bb_remote_asset",
@@ -73,12 +136,28 @@
                }
             },
             {
+               "name": "darwin_arm64: build and test",
+               "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:darwin_arm64 //..."
+            },
+            {
+               "name": "darwin_arm64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:darwin_arm64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "name": "darwin_arm64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v2-preview",
+               "with": {
+                  "name": "bb_remote_asset.darwin_arm64",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
                "name": "freebsd_amd64: build and test",
                "run": "bazel build --platforms=@io_bazel_rules_go//go/toolchain:freebsd_amd64 //cmd/bb_remote_asset"
             },
             {
                "name": "freebsd_amd64: copy bb_remote_asset",
-               "run": "bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:freebsd_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:freebsd_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
             },
             {
                "name": "freebsd_amd64: upload bb_remote_asset",
@@ -94,7 +173,7 @@
             },
             {
                "name": "windows_amd64: copy bb_remote_asset",
-               "run": "bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:windows_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset.exe"
+               "run": "rm -f bb_remote_asset.exe && bazel run --run_under cp --platforms=@io_bazel_rules_go//go/toolchain:windows_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset.exe"
             },
             {
                "name": "windows_amd64: upload bb_remote_asset",
@@ -106,14 +185,14 @@
             },
             {
                "env": {
-                  "DOCKER_CONFIG_JSON": "${{ secrets.DOCKER_CONFIG_JSON }}"
+                  "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
                },
                "name": "Install Docker credentials",
-               "run": "mkdir ~/.docker && echo \"${DOCKER_CONFIG_JSON}\" > ~/.docker/config.json"
+               "run": "echo \"${GITHUB_TOKEN}\" | docker login ghcr.io -u $ --password-stdin"
             },
             {
                "name": "Push container bb_remote_asset:bb_remote_asset",
-               "run": "bazel run //cmd/bb_remote_asset:bb_remote_asset_container_push"
+               "run": "bazel run --stamp //cmd/bb_remote_asset:bb_remote_asset_container_push"
             }
          ]
       }
