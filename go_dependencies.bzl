@@ -167,8 +167,8 @@ def go_dependencies():
         name = "com_github_buildbarn_bb_storage",
         build_naming_convention = "import",
         importpath = "github.com/buildbarn/bb-storage",
-        sum = "h1:gROVpOEaC3KoBxaSN81ewV3YFWO7IS4u2OsyhEj+Is0=",
-        version = "v0.0.0-20230324075921-4a2a4bbbbfeb",
+        sum = "h1:g5mPHVq2ijQBV4yZVBTk/YMutB9yP8JHDcdtLD30oNw=",
+        version = "v0.0.0-20230413132046-995e5867c1fe",
     )
 
     go_repository(
@@ -407,8 +407,8 @@ def go_dependencies():
     )
     go_repository(
         name = "com_github_google_go_jsonnet",
-        importpath = "github.com/google/go-jsonnet",
         build_file_generation = "on",
+        importpath = "github.com/google/go-jsonnet",
         sum = "h1:MORxkrG0elylUqh36R4AcSPX0oZQa9hvI3lroN+kDhs=",
         version = "v0.19.1",
     )

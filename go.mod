@@ -10,8 +10,7 @@ replace mvdan.cc/gofumpt => mvdan.cc/gofumpt v0.3.0
 
 require (
 	github.com/bazelbuild/remote-apis v0.0.0-20230315170832-8f539af4b407
-	github.com/buildbarn/bb-storage v0.0.0-20230324075921-4a2a4bbbbfeb
-	github.com/golang/mock v1.4.4
+	github.com/buildbarn/bb-storage v0.0.0-20230413132046-995e5867c1fe
 	github.com/golang/protobuf v1.5.2
 	github.com/prometheus/client_golang v1.14.0
 	github.com/stretchr/testify v1.8.2
