@@ -33,7 +33,8 @@ type httpFetcher struct {
 // assets over HTTP and storing them into a CAS.
 func NewHTTPFetcher(httpClient *http.Client,
 	contentAddressableStorage blobstore.BlobAccess,
-	allowUpdatesForInstances map[bb_digest.InstanceName]bool) Fetcher {
+	allowUpdatesForInstances map[bb_digest.InstanceName]bool,
+) Fetcher {
 	return &httpFetcher{
 		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,

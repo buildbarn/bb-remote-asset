@@ -22,7 +22,8 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
 	contentAddressableStorage blobstore.BlobAccess,
 	grpcClientFactory grpc.ClientFactory,
-	maximumMessageSizeBytes int) (fetch.Fetcher, error) {
+	maximumMessageSizeBytes int,
+) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
