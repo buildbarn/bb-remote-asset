@@ -34,7 +34,7 @@ func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.B
 }
 
 func (rs *actionCacheAssetStore) assetToDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) (*remoteexecution.Directory, error) {
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(asset.GetDigest().GetHash()))
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(asset.Digest.GetHash()))
 	if err != nil {
 		return nil, err
 	}
