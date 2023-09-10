@@ -50,6 +50,10 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 		if err != nil {
 			return nil, "", "", err
 		}
+		commandDigestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(commandDigest.GetHash()))
+		if err != nil {
+			return nil, "", "", err
+		}
 
 		action := &remoteexecution.Action{
 			CommandDigest:   commandDigest,
@@ -70,7 +74,12 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			return nil, "", "", err
 		}
 
-		bbActionDigest, err := instanceName.NewDigestFromProto(actionDigest)
+		actionDigestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(actionDigest.GetHash()))
+		if err != nil {
+			return nil, "", "", err
+		}
+
+		bbActionDigest, err := actionDigestFunction.NewDigestFromProto(actionDigest)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -79,7 +88,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			return nil, "", "", err
 		}
 
-		bbCommandDigest, err := instanceName.NewDigestFromProto(commandDigest)
+		bbCommandDigest, err := commandDigestFunction.NewDigestFromProto(commandDigest)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -186,7 +195,11 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 		}
 		return nil, status.Errorf(codes.NotFound, "Unable to fetch directory from any of the URIs specified")
 	}
-	treeDigest, err := instance.NewDigestFromProto(digest)
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(digest.GetHash()))
+	if err != nil {
+		return nil, err
+	}
+	treeDigest, err := digestFunction.NewDigestFromProto(digest)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +212,7 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 	if err != nil {
 		return nil, err
 	}
-	bbRootDigest, err := instance.NewDigestFromProto(rootDigest)
+	bbRootDigest, err := digestFunction.NewDigestFromProto(rootDigest)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +225,7 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 		if err != nil {
 			return nil, err
 		}
-		bbChildDigest, err := instance.NewDigestFromProto(childDigest)
+		bbChildDigest, err := digestFunction.NewDigestFromProto(childDigest)
 		if err != nil {
 			return nil, err
 		}

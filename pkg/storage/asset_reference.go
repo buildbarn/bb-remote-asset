@@ -35,7 +35,14 @@ func AssetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceNa
 	hash := sha256.Sum256(wireFormat)
 	sizeBytes := int64(len(wireFormat))
 
-	return instance.NewDigest(hex.EncodeToString(hash[:]), sizeBytes)
+	// GetDigestFunction takes a length of a string repr of a hash, not the length
+	// of the byte array of the hash; multiply by 2 to convert to the former.
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(hash)*2)
+	if err != nil {
+		return digest.Digest{}, err
+	}
+
+	return digestFunction.NewDigest(hex.EncodeToString(hash[:]), sizeBytes)
 }
 
 func assetReferenceToAction(ar *asset.AssetReference, directoryDigest *remoteexecution.Digest) (*remoteexecution.Action, *remoteexecution.Command, error) {
