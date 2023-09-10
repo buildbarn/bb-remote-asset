@@ -112,7 +112,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 				return nil, "", "", err
 			}
 			if operation.GetDone() {
-				err = anypb.UnmarshalFrom(operation.GetResponse(), response)
+				err = anypb.UnmarshalTo(operation.GetResponse(), response, proto.UnmarshalOptions{})
 				if err != nil {
 					return nil, "", "", err
 				}

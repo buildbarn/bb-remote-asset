@@ -195,7 +195,7 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 		140,
 	)
 
-	ts, _ := timestamppb.New(time.Unix(0, 0))
+	ts := timestamppb.New(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
 		OutputFiles: []*remoteexecution.OutputFile{
 			{
@@ -242,7 +242,7 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 		140,
 	)
 
-	ts, _ := timestamppb.New(time.Unix(0, 0))
+	ts := timestamppb.New(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
 		OutputDirectories: []*remoteexecution.OutputDirectory{
 			{

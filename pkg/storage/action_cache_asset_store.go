@@ -344,6 +344,5 @@ func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context,
 }
 
 func getDefaultTimestamp() *timestamppb.Timestamp {
-	ts, _ := timestamppb.New(time.Unix(0, 0))
-	return ts
+	return timestamppb.New(time.Unix(0, 0))
 }

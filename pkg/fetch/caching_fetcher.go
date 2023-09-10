@@ -38,10 +38,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	var oldestContentAccepted time.Time = time.Unix(0, 0)
 	if req.OldestContentAccepted != nil {
-		oldestContentAccepted, err = req.OldestContentAccepted.AsTime()
-		if err != nil {
-			return nil, err
-		}
+		oldestContentAccepted = req.OldestContentAccepted.AsTime()
 	}
 
 	// Check assetStore
@@ -54,16 +51,16 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 		// Check whether the asset has expired, making sure ExpireAt was set
 		if assetData.ExpireAt != nil {
-			expireTime, err := assetData.ExpireAt.AsTime()
-			if err != nil || (expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0))) {
+			expireTime := assetData.ExpireAt.AsTime()
+			if expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0)) {
 				continue
 			}
 		}
 
 		// Check that content is newer than the oldest accepted by the request
 		if oldestContentAccepted != time.Unix(0, 0) {
-			updateTime, err := assetData.LastUpdated.AsTime()
-			if err != nil || updateTime.Before(oldestContentAccepted) {
+			updateTime := assetData.LastUpdated.AsTime()
+			if updateTime.Before(oldestContentAccepted) {
 				continue
 			}
 		}
@@ -114,10 +111,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 	oldestContentAccepted := time.Unix(0, 0)
 	if req.OldestContentAccepted != nil {
-		oldestContentAccepted, err = req.OldestContentAccepted.AsTime()
-		if err != nil {
-			return nil, err
-		}
+		oldestContentAccepted = req.OldestContentAccepted.AsTime()
 	}
 
 	// Check refStore
@@ -130,16 +124,16 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 		// Check whether the asset has expired, making sure ExpireAt was set
 		if assetData.ExpireAt != nil {
-			expireTime, err := assetData.ExpireAt.AsTime()
-			if err != nil || (expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0))) {
+			expireTime := assetData.ExpireAt.AsTime()
+			if expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0)) {
 				continue
 			}
 		}
 
 		// Check that content is newer than the oldest accepted by the request
 		if oldestContentAccepted != time.Unix(0, 0) {
-			updateTime, err := assetData.LastUpdated.AsTime()
-			if err != nil || updateTime.Before(oldestContentAccepted) {
+			updateTime := assetData.LastUpdated.AsTime()
+			if updateTime.Before(oldestContentAccepted) {
 				continue
 			}
 		}
@@ -184,6 +178,5 @@ func (cf *cachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Se
 }
 
 func getDefaultTimestamp() *timestamppb.Timestamp {
-	ts, _ := timestamppb.New(time.Unix(0, 0))
-	return ts
+	return timestamppb.New(time.Unix(0, 0))
 }

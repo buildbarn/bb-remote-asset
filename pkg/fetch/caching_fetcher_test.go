@@ -184,8 +184,7 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
-	ts, err := timestamppb.New(time.Unix(1, 1))
-	require.NoError(t, err)
+	ts := timestamppb.New(time.Unix(1, 1))
 	buf := buffer.NewProtoBufferFromProto(&asset.Asset{
 		Digest: &remoteexecution.Digest{
 			Hash:      "ad84ffc44bab3f84fc3396b4678c1fd39770fa373c3f14eedc5d60e648067960",
