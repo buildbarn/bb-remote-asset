@@ -1,1 +1,5 @@
 run --workspace_status_command="bash tools/workspace-status.sh"
+
+# absl requires compiling with C++14 or later, which the toolchain doesn't do by
+# default; host tooling (gRPC? protobuf?) requires absl.
+build --host_cxxopt=-std=c++17
