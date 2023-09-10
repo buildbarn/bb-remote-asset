@@ -15,12 +15,12 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 	protostatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestFetchBlobCaching(t *testing.T) {
@@ -153,8 +153,8 @@ func TestCachingFetcherExpiry(t *testing.T) {
 			Hash:      "d1bc8d3ba4afc7e109612cb73acbdddac052c93025aa1f82942edabb7deb82a1",
 			SizeBytes: 121,
 		},
-		ExpireAt:    ptypes.TimestampNow(),
-		LastUpdated: ptypes.TimestampNow(),
+		ExpireAt:    timestamppb.Now(),
+		LastUpdated: timestamppb.Now(),
 	}, buffer.UserProvided)
 	backend.EXPECT().Get(ctx, refDigest).Return(buf)
 	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
@@ -178,13 +178,13 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 	request := &remoteasset.FetchBlobRequest{
 		InstanceName:          "bar",
 		Uris:                  []string{uri},
-		OldestContentAccepted: ptypes.TimestampNow(),
+		OldestContentAccepted: timestamppb.Now(),
 	}
 	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
-	ts, err := ptypes.TimestampProto(time.Unix(1, 1))
+	ts, err := timestamppb.New(time.Unix(1, 1))
 	require.NoError(t, err)
 	buf := buffer.NewProtoBufferFromProto(&asset.Asset{
 		Digest: &remoteexecution.Digest{

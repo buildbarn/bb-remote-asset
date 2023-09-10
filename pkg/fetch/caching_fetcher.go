@@ -8,8 +8,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 
@@ -39,7 +38,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	var oldestContentAccepted time.Time = time.Unix(0, 0)
 	if req.OldestContentAccepted != nil {
-		oldestContentAccepted, err = ptypes.Timestamp(req.OldestContentAccepted)
+		oldestContentAccepted, err = req.OldestContentAccepted.AsTime()
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +54,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 		// Check whether the asset has expired, making sure ExpireAt was set
 		if assetData.ExpireAt != nil {
-			expireTime, err := ptypes.Timestamp(assetData.ExpireAt)
+			expireTime, err := assetData.ExpireAt.AsTime()
 			if err != nil || (expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0))) {
 				continue
 			}
@@ -63,7 +62,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 		// Check that content is newer than the oldest accepted by the request
 		if oldestContentAccepted != time.Unix(0, 0) {
-			updateTime, err := ptypes.Timestamp(assetData.LastUpdated)
+			updateTime, err := assetData.LastUpdated.AsTime()
 			if err != nil || updateTime.Before(oldestContentAccepted) {
 				continue
 			}
@@ -115,7 +114,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 	oldestContentAccepted := time.Unix(0, 0)
 	if req.OldestContentAccepted != nil {
-		oldestContentAccepted, err = ptypes.Timestamp(req.OldestContentAccepted)
+		oldestContentAccepted, err = req.OldestContentAccepted.AsTime()
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +130,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 		// Check whether the asset has expired, making sure ExpireAt was set
 		if assetData.ExpireAt != nil {
-			expireTime, err := ptypes.Timestamp(assetData.ExpireAt)
+			expireTime, err := assetData.ExpireAt.AsTime()
 			if err != nil || (expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0))) {
 				continue
 			}
@@ -139,7 +138,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 		// Check that content is newer than the oldest accepted by the request
 		if oldestContentAccepted != time.Unix(0, 0) {
-			updateTime, err := ptypes.Timestamp(assetData.LastUpdated)
+			updateTime, err := assetData.LastUpdated.AsTime()
 			if err != nil || updateTime.Before(oldestContentAccepted) {
 				continue
 			}
@@ -184,7 +183,7 @@ func (cf *cachingFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Se
 	return cf.fetcher.CheckQualifiers(qualifiers)
 }
 
-func getDefaultTimestamp() *timestamp.Timestamp {
-	ts, _ := ptypes.TimestampProto(time.Unix(0, 0))
+func getDefaultTimestamp() *timestamppb.Timestamp {
+	ts, _ := timestamppb.New(time.Unix(0, 0))
 	return ts
 }

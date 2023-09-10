@@ -11,11 +11,11 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type remoteExecutionFetcher struct {
@@ -112,7 +112,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 				return nil, "", "", err
 			}
 			if operation.GetDone() {
-				err = ptypes.UnmarshalAny(operation.GetResponse(), response)
+				err = anypb.UnmarshalFrom(operation.GetResponse(), response)
 				if err != nil {
 					return nil, "", "", err
 				}

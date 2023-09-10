@@ -11,7 +11,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/digest"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // NewAssetReference creates a new AssetReference from a URI and a list
