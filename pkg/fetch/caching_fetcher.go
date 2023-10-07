@@ -38,6 +38,9 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	var oldestContentAccepted time.Time = time.Unix(0, 0)
 	if req.OldestContentAccepted != nil {
+		if err := req.OldestContentAccepted.CheckValid(); err != nil {
+			return nil, err
+		}
 		oldestContentAccepted = req.OldestContentAccepted.AsTime()
 	}
 
