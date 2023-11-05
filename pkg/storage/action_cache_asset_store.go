@@ -10,11 +10,10 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type actionCacheAssetStore struct {
@@ -344,7 +343,6 @@ func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context,
 	return directories, nil
 }
 
-func getDefaultTimestamp() *timestamp.Timestamp {
-	ts, _ := ptypes.TimestampProto(time.Unix(0, 0))
-	return ts
+func getDefaultTimestamp() *timestamppb.Timestamp {
+	return timestamppb.New(time.Unix(0, 0))
 }

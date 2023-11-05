@@ -17,6 +17,10 @@ load("@npm//:defs.bzl", "npm_link_all_packages")
 # gazelle:resolve proto go pkg/proto/configuration/http/http.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/http
 # gazelle:resolve proto opentelemetry/proto/common/v1/common.proto @io_opentelemetry_proto//:common_proto
 # gazelle:resolve proto go opentelemetry/proto/common/v1/common.proto @io_opentelemetry_go_proto_otlp//common/v1:common
+# gazelle:resolve proto go google/bytestream/bytestream.proto @org_golang_google_genproto_googleapis_bytestream//:bytestream
+# gazelle:resolve proto google/bytestream/bytestream.proto @googleapis//google/bytestream:bytestream_proto
+# gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status
+# gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto
 gazelle(
     name = "gazelle",
 )

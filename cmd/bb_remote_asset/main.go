@@ -31,7 +31,7 @@ type timestampDelta struct {
 }
 
 func main() {
-	program.Run(func(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
+	program.RunMain(func(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
 		if len(os.Args) != 2 {
 			return status.Error(codes.InvalidArgument, "Usage: bb_remote_asset bb_remote_asset.jsonnet")
 		}

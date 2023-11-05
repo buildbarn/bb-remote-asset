@@ -12,9 +12,9 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,7 +38,7 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
-	assetData := storage.NewAsset(blobDigest, ptypes.TimestampNow())
+	assetData := storage.NewAsset(blobDigest, timestamppb.Now())
 	refDigest := digest.MustNewDigest(
 		"",
 		remoteexecution.DigestFunction_SHA256,
@@ -111,7 +111,7 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
 	assetData := storage.NewAsset(rootDirectoryDigest,
-		ptypes.TimestampNow())
+		timestamppb.Now())
 	refDigest := digest.MustNewDigest(
 		"",
 		remoteexecution.DigestFunction_SHA256,
@@ -195,7 +195,7 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 		140,
 	)
 
-	ts, _ := ptypes.TimestampProto(time.Unix(0, 0))
+	ts := timestamppb.New(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
 		OutputFiles: []*remoteexecution.OutputFile{
 			{
@@ -242,7 +242,7 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 		140,
 	)
 
-	ts, _ := ptypes.TimestampProto(time.Unix(0, 0))
+	ts := timestamppb.New(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
 		OutputDirectories: []*remoteexecution.OutputDirectory{
 			{

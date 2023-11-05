@@ -12,9 +12,9 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestBlobAccessAssetStorePut(t *testing.T) {
@@ -26,7 +26,7 @@ func TestBlobAccessAssetStorePut(t *testing.T) {
 	blobDigest := &remoteexecution.Digest{Hash: "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643", SizeBytes: 111}
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
-	assetData := storage.NewAsset(blobDigest, ptypes.TimestampNow())
+	assetData := storage.NewAsset(blobDigest, timestamppb.Now())
 	refDigest, err := storage.AssetReferenceToDigest(assetRef, instanceName)
 	require.NoError(t, err)
 
