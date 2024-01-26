@@ -57,8 +57,11 @@ func (bac *assetBlobAccessCreator) GetDefaultCapabilitiesProvider() capabilities
 	})
 }
 
-func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(int, int) (local.BlockListGrowthPolicy, error) {
-	return nil, status.Error(codes.Unimplemented, "NewBlockListGrowthPolicy unimplemeted for assetBlobAccessCreator")
+func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(currentBlocks, newBlocks int) (local.BlockListGrowthPolicy, error) {
+	if newBlocks != 1 {
+		return nil, status.Error(codes.InvalidArgument, "The number of \"new\" blocks must be set to 1 for this storage type, as objects cannot be updated reliably otherwise")
+	}
+	return local.NewMutableBlockListGrowthPolicy(currentBlocks), nil
 }
 
 func (bac *assetBlobAccessCreator) NewHierarchicalInstanceNamesLocalBlobAccess(local.KeyLocationMap, local.LocationBlobMap, *sync.RWMutex) (blobstore.BlobAccess, error) {
