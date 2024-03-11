@@ -10,8 +10,6 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -32,59 +30,13 @@ func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.B
 	}
 }
 
-func (rs *actionCacheAssetStore) assetToDirectory(ctx context.Context, asset *asset.Asset, instance digest.InstanceName) (*remoteexecution.Directory, error) {
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(asset.Digest.GetHash()))
-	if err != nil {
-		return nil, err
-	}
-	digest, err := digestFunction.NewDigestFromProto(asset.Digest)
-	if err != nil {
-		return nil, err
-	}
-	directory, err := rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
-	if err != nil {
-		return nil, err
-	}
-	return directory.(*remoteexecution.Directory), nil
-}
-
 func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *remoteexecution.ActionResult, instance digest.InstanceName) (*asset.Asset, error) {
 	digest := &remoteexecution.Digest{}
-	// Check if there is an output directory in the action result
-	for _, dir := range a.OutputDirectories {
-		if dir.Path == "out" {
-			digest = dir.TreeDigest
-		}
-	}
-	// If the required output directory is present
-	if digest.Hash != "" {
-		digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(digest.Hash))
-		if err != nil {
-			return nil, err
-		}
-		treeDigest, err := digestFunction.NewDigestFromProto(digest)
-		if err != nil {
-			return nil, err
-		}
-		// The action result contains a tree digest, but a directory digest
-		// is needed, so retrieve the tree message and get the digest of the
-		// root
-		tree, err := rs.contentAddressableStorage.Get(ctx, treeDigest).ToProto(&remoteexecution.Tree{}, rs.maximumMessageSizeBytes)
-		if err != nil {
-			return nil, err
-		}
-		root := tree.(*remoteexecution.Tree).Root
-		digest, err = ProtoToDigest(root)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Required output directory is not present, look for required
-		// output file
-		for _, file := range a.OutputFiles {
-			if file.Path == "out" {
-				digest = file.Digest
-			}
+	// Required output directory is not present, look for required
+	// output file
+	for _, file := range a.OutputFiles {
+		if file.Path == "out" {
+			digest = file.Digest
 		}
 	}
 	return &asset.Asset{
@@ -204,22 +156,10 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	}
 	var action *remoteexecution.Action
 	var command *remoteexecution.Command
-	if commandGenerator, err := qualifier.QualifiersToCommand(ref.Qualifiers); err != nil || len(ref.Uris) > 1 {
-		// Create the action with the qualifier directory as the input root
-		action, command, err = assetReferenceToAction(ref, directoryDigest)
-		if err != nil {
-			return err
-		}
-	} else {
-		command = commandGenerator(ref.Uris[0])
-		commandDigest, err := ProtoToDigest(command)
-		if err != nil {
-			return err
-		}
-		action = &remoteexecution.Action{
-			CommandDigest:   commandDigest,
-			InputRootDigest: EmptyDigest,
-		}
+	// Create the action with the qualifier directory as the input root
+	action, command, err = assetReferenceToAction(ref, directoryDigest)
+	if err != nil {
+		return err
 	}
 	actionPb, err := proto.Marshal(action)
 	if err != nil {
@@ -256,91 +196,15 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	}
 
 	actionResult := &remoteexecution.ActionResult{
+		OutputFiles: []*remoteexecution.OutputFile{{
+			Path:   "out",
+			Digest: data.Digest,
+		}},
 		ExecutionMetadata: &remoteexecution.ExecutedActionMetadata{
 			QueuedTimestamp: data.LastUpdated,
 		},
 	}
-
-	// Check if the input asset is a directory or blob
-	d, err := rs.assetToDirectory(ctx, data, instance)
-	if err == nil {
-		// If it is a directory, construct a tree from it as tree digest is
-		// required for action result
-		tree, err := rs.directoryToTree(ctx, d, instance)
-		if err != nil {
-			return err
-		}
-		treePb, err := proto.Marshal(tree)
-		if err != nil {
-			return err
-		}
-		treeDigest, err := ProtoToDigest(tree)
-		if err != nil {
-			return err
-		}
-		bbTreeDigest, err := digestFunction.NewDigestFromProto(treeDigest)
-		if err != nil {
-			return err
-		}
-		err = rs.contentAddressableStorage.Put(ctx, bbTreeDigest, buffer.NewCASBufferFromByteSlice(bbTreeDigest, treePb, buffer.UserProvided))
-		if err != nil {
-			return err
-		}
-		actionResult.OutputDirectories = []*remoteexecution.OutputDirectory{{
-			Path:       "out",
-			TreeDigest: treeDigest,
-		}}
-	} else {
-		// If it isn't a directory, use the digest as an output file digest
-		if status.Code(err) != codes.InvalidArgument {
-			return err
-		}
-		actionResult.OutputFiles = []*remoteexecution.OutputFile{{
-			Path:   "out",
-			Digest: data.Digest,
-		}}
-	}
 	return rs.actionCache.Put(ctx, bbActionDigest, buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided))
-}
-
-func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, directory *remoteexecution.Directory, instance digest.InstanceName) (*remoteexecution.Tree, error) {
-	children := []*remoteexecution.Directory{}
-	for _, node := range directory.Directories {
-		nodeChildren, err := rs.directoryNodeToDirectories(ctx, instance, node)
-		if err != nil {
-			return nil, err
-		}
-		children = append(children, nodeChildren...)
-	}
-
-	return &remoteexecution.Tree{
-		Root:     directory,
-		Children: children,
-	}, nil
-}
-
-func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context, instance digest.InstanceName, node *remoteexecution.DirectoryNode) ([]*remoteexecution.Directory, error) {
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(node.GetDigest().GetHash()))
-	if err != nil {
-		return nil, err
-	}
-	digest, err := digestFunction.NewDigestFromProto(node.Digest)
-	if err != nil {
-		return nil, err
-	}
-	directory, err := rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
-	if err != nil {
-		return nil, err
-	}
-	directories := []*remoteexecution.Directory{directory.(*remoteexecution.Directory)}
-	for _, node := range directory.(*remoteexecution.Directory).Directories {
-		children, err := rs.directoryNodeToDirectories(ctx, instance, node)
-		if err != nil {
-			return nil, err
-		}
-		directories = append(directories, children...)
-	}
-	return directories, nil
 }
 
 func getDefaultTimestamp() *timestamppb.Timestamp {
