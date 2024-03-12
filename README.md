@@ -46,6 +46,8 @@ $ cat config/bb_remote_asset.jsonnet
   }],
   allowUpdatesForInstances: ['foo'],
   maximumMessageSizeBytes: 16 * 1024 * 1024 * 1024,
+  fetchAuthorizer: { allow: {} },
+  pushAuthorizer: { allow: {} },
 }
 ```
 
@@ -79,7 +81,7 @@ $ cat config/bb_remote_asset.jsonnet
           keyLocationMapMaximumPutAttempts: 32,
           oldBlocks: 8,
           currentBlocks: 24,
-          newBlocks: 3,
+          newBlocks: 1,
           blocksOnBlockDevice: {
             source: {
               file: {
@@ -106,6 +108,8 @@ $ cat config/bb_remote_asset.jsonnet
   }],
   allowUpdatesForInstances: ['foo'],
   maximumMessageSizeBytes: 16 * 1024 * 1024 * 1024,
+  fetchAuthorizer: { allow: {} },
+  pushAuthorizer: { allow: {} },
 }
 ```
 
