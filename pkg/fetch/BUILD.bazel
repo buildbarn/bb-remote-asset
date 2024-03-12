@@ -4,6 +4,7 @@ go_library(
     name = "fetch",
     srcs = [
         "auth_headers.go",
+        "authorizing_fetcher.go",
         "caching_fetcher.go",
         "error_fetcher.go",
         "fetcher.go",
@@ -20,6 +21,7 @@ go_library(
         "//pkg/storage",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:asset",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",
+        "@com_github_buildbarn_bb_storage//pkg/auth",
         "@com_github_buildbarn_bb_storage//pkg/blobstore",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer",
         "@com_github_buildbarn_bb_storage//pkg/clock",
@@ -40,6 +42,7 @@ go_library(
 go_test(
     name = "fetch_test",
     srcs = [
+        "authorizing_fetcher_test.go",
         "caching_fetcher_test.go",
         "http_fetcher_test.go",
         "validating_fetcher_test.go",

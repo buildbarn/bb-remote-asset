@@ -10,6 +10,7 @@ load("@gazelle//:def.bzl", "gazelle")
 # gazelle:resolve proto go google/bytestream/bytestream.proto @org_golang_google_genproto_googleapis_bytestream//:bytestream
 # gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status
 # gazelle:resolve proto go opentelemetry/proto/common/v1/common.proto @io_opentelemetry_go_proto_otlp//common/v1:common
+# gazelle:resolve proto go pkg/proto/configuration/auth/auth.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/auth
 # gazelle:resolve proto go pkg/proto/configuration/blobstore/blobstore.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore
 # gazelle:resolve proto go pkg/proto/configuration/global/global.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/global
 # gazelle:resolve proto go pkg/proto/configuration/grpc/grpc.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc
@@ -18,6 +19,8 @@ load("@gazelle//:def.bzl", "gazelle")
 # gazelle:resolve proto google/protobuf/timestamp.proto @protobuf//:timestamp_proto
 # gazelle:resolve proto google/rpc/status.proto @googleapis//google/rpc:status_proto
 # gazelle:resolve proto opentelemetry/proto/common/v1/common.proto @io_opentelemetry_proto//:common_proto
+# gazelle:resolve proto pkg/proto/auth/auth.proto @com_github_buildbarn_bb_storage//pkg/proto/auth:auth_proto
+# gazelle:resolve proto pkg/proto/configuration/auth/auth.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/auth:auth_proto
 # gazelle:resolve proto pkg/proto/configuration/blobstore/blobstore.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto
 # gazelle:resolve proto pkg/proto/configuration/global/global.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto
 # gazelle:resolve proto pkg/proto/configuration/grpc/grpc.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto

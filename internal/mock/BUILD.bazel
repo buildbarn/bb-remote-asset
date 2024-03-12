@@ -12,6 +12,16 @@ gomock(
 )
 
 gomock(
+    name = "auth",
+    out = "auth.go",
+    interfaces = [
+        "Authorizer",
+    ],
+    library = "@com_github_buildbarn_bb_storage//pkg/auth",
+    package = "mock",
+)
+
+gomock(
     name = "aliases",
     out = "aliases.go",
     interfaces = [
@@ -30,18 +40,29 @@ gomock(
     package = "mock",
 )
 
+gomock(
+    name = "storage",
+    out = "storage.go",
+    interfaces = ["AssetStore"],
+    library = "//pkg/storage",
+    package = "mock",
+)
+
 go_library(
     name = "mock",
     srcs = [
         "aliases.go",
+        "auth.go",
         "blobstore.go",
         "dummy.go",
         "fetcher.go",
+        "storage.go",
     ],
     importpath = "github.com/buildbarn/bb-remote-asset/internal/mock",
     visibility = ["//:__subpackages__"],
     # keep
     deps = [
+        "//pkg/proto/asset",
         "//pkg/qualifier",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:asset",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",

@@ -10,6 +10,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
+	"github.com/buildbarn/bb-storage/pkg/auth"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
@@ -45,11 +46,23 @@ func main() {
 			return util.StatusWrap(err, "Failed to apply global configuration options")
 		}
 
+		fetchAuthorizer, err := auth.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.FetchAuthorizer)
+		if err != nil {
+			return util.StatusWrap(err, "Failed to create Fetch Authorizer from Configuration")
+		}
+
+		pushAuthorizer, err := auth.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.PushAuthorizer)
+		if err != nil {
+			return util.StatusWrap(err, "Failed to create Push Authorizer from Configuration")
+		}
+
 		assetStore, contentAddressableStorage, err := configuration.NewAssetStoreAndCASFromConfiguration(
 			config.AssetCache,
 			grpcClientFactory,
 			int(config.MaximumMessageSizeBytes),
 			dependenciesGroup,
+			fetchAuthorizer,
+			pushAuthorizer,
 		)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to create asset store and CAS")
@@ -64,7 +77,7 @@ func main() {
 			allowUpdatesForInstances[instanceName] = true
 		}
 
-		fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes))
+		fetchServer, err := configuration.NewFetcherFromConfiguration(config.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, int(config.MaximumMessageSizeBytes), fetchAuthorizer)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to initialize fetch server from configuration")
 		}
