@@ -14,6 +14,7 @@ go_library(
         "//pkg/proto/configuration/bb_remote_asset/fetch",
         "//pkg/storage",
         "//pkg/storage/blobstore",
+        "@com_github_buildbarn_bb_storage//pkg/auth",
         "@com_github_buildbarn_bb_storage//pkg/blobstore",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/configuration",
         "@com_github_buildbarn_bb_storage//pkg/digest",
