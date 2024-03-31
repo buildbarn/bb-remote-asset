@@ -6,7 +6,7 @@ import "build/bazel/remote/asset/v1/remote_asset.proto";
 import "build/bazel/remote/execution/v2/remote_execution.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/buildbarn/bb-storage/pkg/proto/asset";
+option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/asset";
 
 message AssetReference {
   // URI associated with this asset
