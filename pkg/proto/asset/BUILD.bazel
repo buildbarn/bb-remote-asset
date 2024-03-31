@@ -1,6 +1,6 @@
+load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 proto_library(
     name = "asset_proto",
@@ -9,13 +9,13 @@ proto_library(
     deps = [
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:remote_asset_proto",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution_proto",
-        "@com_google_protobuf//:timestamp_proto",
+        "@protobuf//:timestamp_proto",
     ],
 )
 
 go_proto_library(
     name = "asset_go_proto",
-    importpath = "github.com/buildbarn/bb-remote-asset/pkg/proto/asset",  # keep
+    importpath = "github.com/buildbarn/bb-remote-asset/pkg/proto/asset",
     proto = ":asset_proto",
     visibility = ["//visibility:public"],
     deps = [
@@ -27,6 +27,6 @@ go_proto_library(
 go_library(
     name = "asset",
     embed = [":asset_go_proto"],
-    importpath = "github.com/buildbarn/bb-remote-asset/pkg/proto/asset",  # keep
+    importpath = "github.com/buildbarn/bb-remote-asset/pkg/proto/asset",
     visibility = ["//visibility:public"],
 )
