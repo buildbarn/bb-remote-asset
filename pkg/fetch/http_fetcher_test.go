@@ -11,7 +11,7 @@ import (
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	"github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -50,9 +50,6 @@ func (hm *headerMatcher) Matches(x interface{}) bool {
 func TestHTTPFetcherFetchBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName, err := bb_digest.NewInstanceName("")
-	require.NoError(t, err)
-
 	uri := "www.example.com"
 	request := &remoteasset.FetchBlobRequest{
 		InstanceName: "",
@@ -60,8 +57,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
-	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{instanceName: true}
-	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess, allowUpdatesForInstances)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
 	body := mock.NewMockReadCloser(ctrl)
 	helloDigest := bb_digest.MustNewDigest(
 		"",
@@ -158,9 +154,6 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 func TestHTTPFetcherFetchDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName, err := bb_digest.NewInstanceName("")
-	require.NoError(t, err)
-
 	uri := "www.example.com"
 	request := &remoteasset.FetchDirectoryRequest{
 		InstanceName: "",
@@ -168,9 +161,8 @@ func TestHTTPFetcherFetchDirectory(t *testing.T) {
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
-	allowUpdatesForInstances := map[bb_digest.InstanceName]bool{instanceName: true}
-	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess, allowUpdatesForInstances)
-	_, err = HTTPFetcher.FetchDirectory(ctx, request)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
+	_, err := HTTPFetcher.FetchDirectory(ctx, request)
 	require.NotNil(t, err)
 	require.Equal(t, status.Code(err), codes.PermissionDenied)
 }

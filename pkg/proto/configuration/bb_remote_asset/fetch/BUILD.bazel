@@ -7,7 +7,6 @@ proto_library(
     srcs = ["fetcher.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/http:http_proto",
         "@googleapis//google/rpc:status_proto",
@@ -20,7 +19,6 @@ go_proto_library(
     proto = ":fetch_proto",
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/http",
         "@org_golang_google_genproto_googleapis_rpc//status",
