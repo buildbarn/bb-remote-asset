@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -26,19 +25,16 @@ import (
 type httpFetcher struct {
 	httpClient                *http.Client
 	contentAddressableStorage blobstore.BlobAccess
-	allowUpdatesForInstances  map[bb_digest.InstanceName]bool
 }
 
 // NewHTTPFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
 func NewHTTPFetcher(httpClient *http.Client,
 	contentAddressableStorage blobstore.BlobAccess,
-	allowUpdatesForInstances map[bb_digest.InstanceName]bool,
 ) Fetcher {
 	return &httpFetcher{
 		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,
-		allowUpdatesForInstances:  allowUpdatesForInstances,
 	}
 }
 
@@ -47,10 +43,6 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
-	}
-
-	if hf.allowUpdatesForInstances[instanceName] == false {
-		return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("This instance ('%s') is not permitted to update the CAS.", instanceName))
 	}
 
 	// TODO: Address the following fields
