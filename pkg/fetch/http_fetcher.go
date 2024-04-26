@@ -6,15 +6,17 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"io/ioutil"
+	"io"
+	"log"
 	"net/http"
 	"strings"
 
-	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
+
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -60,12 +62,14 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 
 	for _, uri := range req.Uris {
 
-		buffer, digest := hf.DownloadBlob(ctx, uri, instanceName, expectedDigest, auth)
+		buffer, digest := hf.downloadBlob(ctx, uri, instanceName, expectedDigest, auth)
 		if _, err = buffer.GetSizeBytes(); err != nil {
+			log.Printf("Error downloading blob with URI %s: %v", uri, err)
 			continue
 		}
 
-		if err := hf.contentAddressableStorage.Put(ctx, digest, buffer); err != nil {
+		if err = hf.contentAddressableStorage.Put(ctx, digest, buffer); err != nil {
+			log.Printf("Error downloading blob with URI %s: %v", uri, err)
 			return nil, util.StatusWrapWithCode(err, codes.Internal, "Failed to place blob into CAS")
 		}
 		return &remoteasset.FetchBlobResponse{
@@ -87,7 +91,7 @@ func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri", "bazel.auth_headers", "bazel.canonical_id"}))
 }
 
-func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
+func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest
@@ -99,39 +103,61 @@ func (hf *httpFetcher) DownloadBlob(ctx context.Context, uri string, instanceNam
 
 	resp, err := hf.httpClient.Do(req)
 	if err != nil {
+		log.Printf("Error downloading blob with URI %s: %v", uri, err)
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest
 	}
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("Error downloading blob with URI %s: %v", uri, resp.StatusCode)
 		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest
 	}
 
-	// Read all of the content (Not ideal) | // TODO: find a way to avoid internal buffering here
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest
+	// Work out the digest of the downloaded data
+	//
+	// If the HTTP response includes the content length (indicated by the value
+	// of the field being >= 0) and the client has provided an expected hash of
+	// the content, we can avoid holding the contents of the entire file in
+	// memory at one time by creating a new buffer from the response body
+	// directly
+	//
+	// If either one (or both) of these things is not available, we will need to
+	// read the enitre response body into a byte slice in order to be able to
+	// determine the digest
+	length := resp.ContentLength
+	body := resp.Body
+	if length < 0 || expectedDigest == "" {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")), bb_digest.BadDigest
+		}
+		length = int64(len(bodyBytes))
+
+		// If we don't know what the hash should be we will need to work out the
+		// actual hash of the content
+		if expectedDigest == "" {
+			hasher := sha256.New()
+			hasher.Write(bodyBytes)
+			hash := hasher.Sum(nil)
+			expectedDigest = hex.EncodeToString(hash)
+		}
+
+		body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
-	nBytes := len(body)
-
-	hasher := sha256.New()
-	hasher.Write(body)
-	hash := hasher.Sum(nil)
-	hexHash := hex.EncodeToString(hash)
-
-	if expectedDigest != "" && hexHash != expectedDigest {
-		return buffer.NewBufferFromError(
-			status.Errorf(codes.PermissionDenied, "Checksum invalid for fetched blob. Expected: %s, Found: %s", expectedDigest, hexHash)), bb_digest.BadDigest
-	}
-
-	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(hexHash))
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(expectedDigest))
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapfWithCode(err, codes.Internal, "Failed to get digest function for instance: %v", instanceName)), bb_digest.BadDigest
 	}
-	digest, err := digestFunction.NewDigest(hexHash, int64(nBytes))
+	digest, err := digestFunction.NewDigest(expectedDigest, length)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Digest Creation failed")), bb_digest.BadDigest
 	}
 
-	return buffer.NewCASBufferFromReader(digest, ioutil.NopCloser(bytes.NewBuffer(body)), buffer.UserProvided), digest
+	// An error will be generated down the line if the data does not match the
+	// digest
+	return buffer.NewCASBufferFromReader(digest, body, buffer.UserProvided), digest
 }
 
 func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, error) {
