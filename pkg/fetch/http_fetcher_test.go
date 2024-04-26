@@ -54,6 +54,12 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	request := &remoteasset.FetchBlobRequest{
 		InstanceName: "",
 		Uris:         []string{uri, "www.another.com"},
+		Qualifiers: []*remoteasset.Qualifier{
+			{
+				Name:  "checksum.sri",
+				Value: "sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
+			},
+		},
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
@@ -68,15 +74,82 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
-			Status:     "200 Success",
-			StatusCode: 200,
-			Body:       body,
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.Nil(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+	})
+
+	t.Run("SuccessNoContentLength", func(t *testing.T) {
+		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: -1,
 		}, nil)
 		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
 			copy(p, "Hello")
 			return 5, io.EOF
 		}).After(httpDoCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyReadCall)
+		bodyCloseCall := body.EXPECT().Close().Return(nil).After(bodyReadCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyCloseCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.Nil(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+	})
+
+	t.Run("SuccessNoExpectedDigest", func(t *testing.T) {
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: "",
+			Uris:         []string{uri, "www.another.com"},
+			Qualifiers:   []*remoteasset.Qualifier{},
+		}
+		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
+			copy(p, "Hello")
+			return 5, io.EOF
+		}).After(httpDoCall)
+		bodyCloseCall := body.EXPECT().Close().Return(nil).After(bodyReadCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyCloseCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.Nil(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+	})
+
+	t.Run("SuccessNoExpectedDigestOrContentLength", func(t *testing.T) {
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: "",
+			Uris:         []string{uri, "www.another.com"},
+			Qualifiers:   []*remoteasset.Qualifier{},
+		}
+		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: -1,
+		}, nil)
+		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
+			copy(p, "Hello")
+			return 5, io.EOF
+		}).After(httpDoCall)
+		bodyCloseCall := body.EXPECT().Close().Return(nil).After(bodyReadCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyCloseCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
@@ -90,15 +163,12 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			StatusCode: 404,
 		}, nil)
 		httpSuccessCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
-			Status:     "200 Success",
-			StatusCode: 200,
-			Body:       body,
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
 		}, nil).After(httpFailCall)
-		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
-			copy(p, "Hello")
-			return 5, io.EOF
-		}).After(httpSuccessCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyReadCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpSuccessCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
@@ -126,6 +196,10 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 					Name:  "bazel.auth_headers",
 					Value: `{ "www.example.com": {"Authorization": "Bearer letmein"}}`,
 				},
+				{
+					Name:  "checksum.sri",
+					Value: "sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
+				},
 			},
 		}
 		matcher := &headerMatcher{
@@ -134,15 +208,12 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			},
 		}
 		httpDoCall := roundTripper.EXPECT().RoundTrip(matcher).Return(&http.Response{
-			Status:     "200 Success",
-			StatusCode: 200,
-			Body:       body,
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
 		}, nil)
-		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
-			copy(p, "Hello")
-			return 5, io.EOF
-		}).After(httpDoCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyReadCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
