@@ -4,6 +4,7 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/auth"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
@@ -17,6 +18,8 @@ func NewAssetStoreAndCASFromConfiguration(
 	grpcClientFactory grpc.ClientFactory,
 	maximumMessageSizeBytes int,
 	dependenciesGroup program.Group,
+	fetchAuthorizer auth.Authorizer,
+	pushAuthorizer auth.Authorizer,
 ) (storage.AssetStore, blobstore.BlobAccess, error) {
 	var assetStore storage.AssetStore
 	var contentAddressableStorage blobstore.BlobAccess
@@ -55,5 +58,5 @@ func NewAssetStoreAndCASFromConfiguration(
 		contentAddressableStorage = cas
 		assetStore = storage.NewActionCacheAssetStore(actionCache, contentAddressableStorage, maximumMessageSizeBytes)
 	}
-	return assetStore, contentAddressableStorage, nil
+	return storage.NewAuthorizingAssetStore(assetStore, fetchAuthorizer, pushAuthorizer), contentAddressableStorage, nil
 }

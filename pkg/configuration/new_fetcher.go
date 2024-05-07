@@ -7,6 +7,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
+	"github.com/buildbarn/bb-storage/pkg/auth"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
@@ -23,11 +24,12 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	contentAddressableStorage blobstore.BlobAccess,
 	grpcClientFactory grpc.ClientFactory,
 	maximumMessageSizeBytes int,
+	authorizer auth.Authorizer,
 ) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	switch backend := configuration.Backend.(type) {
 	case *pb.FetcherConfiguration_Caching:
-		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, maximumMessageSizeBytes)
+		innerFetcher, err := NewFetcherFromConfiguration(backend.Caching.Fetcher, assetStore, contentAddressableStorage, grpcClientFactory, maximumMessageSizeBytes, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -64,5 +66,5 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 	}
 
-	return fetcher, nil
+	return fetch.NewAuthorizingFetcher(fetcher, authorizer), nil
 }

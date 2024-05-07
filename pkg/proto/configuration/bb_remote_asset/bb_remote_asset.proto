@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package buildbarn.configuration.bb_remote_asset;
 
+import "pkg/proto/configuration/auth/auth.proto";
 import "pkg/proto/configuration/blobstore/blobstore.proto";
 import "pkg/proto/configuration/global/global.proto";
 import "pkg/proto/configuration/grpc/grpc.proto";
@@ -36,6 +37,12 @@ message ApplicationConfiguration {
       8;
 
   AssetCacheConfiguration asset_cache = 9;
+
+  // Authorization policy for Fetch operations
+  buildbarn.configuration.auth.AuthorizerConfiguration fetch_authorizer = 10;
+
+  // Authorization policy for Push operations
+  buildbarn.configuration.auth.AuthorizerConfiguration push_authorizer = 11;
 }
 
 message AssetCacheConfiguration {
