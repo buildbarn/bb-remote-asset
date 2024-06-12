@@ -29,12 +29,6 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 		Hash:      "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643",
 		SizeBytes: 111,
 	}
-	bbBlobDigest := digest.MustNewDigest(
-		"",
-		remoteexecution.DigestFunction_SHA256,
-		blobDigest.Hash,
-		blobDigest.SizeBytes,
-	)
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
@@ -70,8 +64,6 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 	cas.EXPECT().Put(ctx, directoryDigest, gomock.Any()).Return(nil)
 	cas.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
 	cas.EXPECT().Put(ctx, commandDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Get(ctx, bbBlobDigest).Return(
-		buffer.NewValidatedBufferFromByteSlice([]byte("Hello")))
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
 			m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
@@ -101,12 +93,6 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 		Hash:      "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643",
 		SizeBytes: 111,
 	}
-	bbRootDirectoryDigest := digest.MustNewDigest(
-		"",
-		remoteexecution.DigestFunction_SHA256,
-		rootDirectoryDigest.Hash,
-		rootDirectoryDigest.SizeBytes,
-	)
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
@@ -136,16 +122,6 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 		"e6842def39984b212641b9796c162b9e3085da84257bae614418f2255b0addc5",
 		38,
 	)
-	bbTreeDigest := digest.MustNewDigest(
-		"",
-		remoteexecution.DigestFunction_SHA256,
-		"102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604",
-		2,
-	)
-	treeDigest := &remoteexecution.Digest{
-		Hash:      "102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604",
-		SizeBytes: 2,
-	}
 
 	ac := mock.NewMockBlobAccess(ctrl)
 	cas := mock.NewMockBlobAccess(ctrl)
@@ -153,18 +129,14 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 	cas.EXPECT().Put(ctx, directoryDigest, gomock.Any()).Return(nil)
 	cas.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
 	cas.EXPECT().Put(ctx, commandDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Get(ctx, bbRootDirectoryDigest).Return(
-		buffer.NewProtoBufferFromProto(&remoteexecution.Directory{},
-			buffer.UserProvided))
-	cas.EXPECT().Put(ctx, bbTreeDigest, gomock.Any()).Return(nil)
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
 			m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
 			require.NoError(t, err)
 			a := m.(*remoteexecution.ActionResult)
-			for _, d := range a.OutputDirectories {
+			for _, d := range a.OutputFiles {
 				if d.Path == "out" {
-					require.True(t, proto.Equal(d.TreeDigest, treeDigest))
+					require.True(t, proto.Equal(d.Digest, rootDirectoryDigest))
 					return nil
 				}
 			}
@@ -222,16 +194,6 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 
 	instanceName := digest.MustNewInstanceName("")
 
-	treeDigest := &remoteexecution.Digest{
-		Hash:      "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
-		SizeBytes: 222,
-	}
-	bbTreeDigest := digest.MustNewDigest(
-		"",
-		remoteexecution.DigestFunction_SHA256,
-		"aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
-		222,
-	)
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{})
@@ -244,10 +206,13 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 
 	ts := timestamppb.New(time.Unix(0, 0))
 	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
-		OutputDirectories: []*remoteexecution.OutputDirectory{
+		OutputFiles: []*remoteexecution.OutputFile{
 			{
-				Path:       "out",
-				TreeDigest: treeDigest,
+				Path: "out",
+				Digest: &remoteexecution.Digest{
+					Hash:      "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
+					SizeBytes: 222,
+				},
 			},
 		},
 		ExecutionMetadata: &remoteexecution.ExecutedActionMetadata{
@@ -255,14 +220,9 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 		},
 	}, buffer.UserProvided)
 
-	treeBuf := buffer.NewProtoBufferFromProto(&remoteexecution.Tree{
-		Root: &remoteexecution.Directory{},
-	}, buffer.UserProvided)
-
 	ac := mock.NewMockBlobAccess(ctrl)
 	cas := mock.NewMockBlobAccess(ctrl)
 	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
-	cas.EXPECT().Get(ctx, bbTreeDigest).Return(treeBuf)
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
 	_, err := assetStore.Get(ctx, assetRef, instanceName)
