@@ -169,7 +169,11 @@ func TestCachingFetcherExpiry(t *testing.T) {
 	cacheFetcher := fetch.NewCachingFetcher(baseFetcher, assetStore)
 
 	_, err = cacheFetcher.FetchBlob(ctx, request)
-	require.Equal(t, status.ErrorProto(&protostatus.Status{Code: 5, Message: "Not found"}), err)
+
+	errAsStatus := status.Convert(err)
+	require.Contains(t, errAsStatus.Message(), "Not found")
+	require.Contains(t, errAsStatus.Message(), "Asset expired at")
+	require.Equal(t, errAsStatus.Code(), codes.NotFound)
 }
 
 func TestCachingFetcherOldestContentAccepted(t *testing.T) {
@@ -206,5 +210,8 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 	cacheFetcher := fetch.NewCachingFetcher(baseFetcher, assetStore)
 
 	_, err = cacheFetcher.FetchBlob(ctx, request)
-	require.Equal(t, status.ErrorProto(&protostatus.Status{Code: 5, Message: "Not found"}), err)
+	errAsStatus := status.Convert(err)
+	require.Contains(t, errAsStatus.Message(), "Not found")
+	require.Contains(t, errAsStatus.Message(), "Asset older than")
+	require.Equal(t, errAsStatus.Code(), codes.NotFound)
 }

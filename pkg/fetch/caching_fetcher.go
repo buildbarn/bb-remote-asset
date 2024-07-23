@@ -2,8 +2,11 @@ package fetch
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
@@ -44,28 +47,14 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 		oldestContentAccepted = req.OldestContentAccepted.AsTime()
 	}
 
+	allCachingErrors := []error{}
+
 	// Check assetStore
 	for _, uri := range req.Uris {
-		assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
-		assetData, err := cf.assetStore.Get(ctx, assetRef, instanceName)
+		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, req.Qualifiers, instanceName, oldestContentAccepted)
 		if err != nil {
+			allCachingErrors = append(allCachingErrors, err)
 			continue
-		}
-
-		// Check whether the asset has expired, making sure ExpireAt was set
-		if assetData.ExpireAt != nil {
-			expireTime := assetData.ExpireAt.AsTime()
-			if expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0)) {
-				continue
-			}
-		}
-
-		// Check that content is newer than the oldest accepted by the request
-		if oldestContentAccepted != time.Unix(0, 0) {
-			updateTime := assetData.LastUpdated.AsTime()
-			if updateTime.Before(oldestContentAccepted) {
-				continue
-			}
 		}
 
 		// Successful retrieval from the asset reference cache
@@ -81,7 +70,13 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 	// Fetch from wrapped fetcher
 	response, err := cf.fetcher.FetchBlob(ctx, req)
 	if err != nil {
-		return nil, err
+		errAsStatus := status.Convert(err)
+		return nil, status.Errorf(
+			errAsStatus.Code(),
+			"%s (retrieving cached blob failed with: %v)",
+			errAsStatus.Message(),
+			errors.Join(allCachingErrors...),
+		)
 	}
 	if response.Status.Code != 0 {
 		return response, nil
@@ -106,6 +101,39 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 	return response, nil
 }
 
+func getAndCheckAsset(
+	ctx context.Context,
+	assetStore storage.AssetStore,
+	uri string,
+	qualifiers []*remoteasset.Qualifier,
+	instanceName bb_digest.InstanceName,
+	oldestContentAccepted time.Time,
+) (*asset.Asset, error) {
+	assetRef := storage.NewAssetReference([]string{uri}, qualifiers)
+	assetData, err := assetStore.Get(ctx, assetRef, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check whether the asset has expired, making sure ExpireAt was set
+	if assetData.ExpireAt != nil {
+		expireTime := assetData.ExpireAt.AsTime()
+		if expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0)) {
+			return nil, fmt.Errorf("Asset expired at %v", expireTime)
+		}
+	}
+
+	// Check that content is newer than the oldest accepted by the request
+	if oldestContentAccepted != time.Unix(0, 0) {
+		updateTime := assetData.LastUpdated.AsTime()
+		if updateTime.Before(oldestContentAccepted) {
+			return nil, fmt.Errorf("Asset older than %v", oldestContentAccepted)
+		}
+	}
+
+	return assetData, nil
+}
+
 func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
 	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
 	if err != nil {
@@ -117,28 +145,14 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 		oldestContentAccepted = req.OldestContentAccepted.AsTime()
 	}
 
+	allCachingErrors := []error{}
+
 	// Check refStore
 	for _, uri := range req.Uris {
-		assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
-		assetData, err := cf.assetStore.Get(ctx, assetRef, instanceName)
+		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, req.Qualifiers, instanceName, oldestContentAccepted)
 		if err != nil {
+			allCachingErrors = append(allCachingErrors, err)
 			continue
-		}
-
-		// Check whether the asset has expired, making sure ExpireAt was set
-		if assetData.ExpireAt != nil {
-			expireTime := assetData.ExpireAt.AsTime()
-			if expireTime.Before(time.Now()) && !expireTime.Equal(time.Unix(0, 0)) {
-				continue
-			}
-		}
-
-		// Check that content is newer than the oldest accepted by the request
-		if oldestContentAccepted != time.Unix(0, 0) {
-			updateTime := assetData.LastUpdated.AsTime()
-			if updateTime.Before(oldestContentAccepted) {
-				continue
-			}
 		}
 
 		// Successful retrieval from the asset reference cache
@@ -154,7 +168,13 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	// Fetch from wrapped fetcher
 	response, err := cf.fetcher.FetchDirectory(ctx, req)
 	if err != nil {
-		return nil, err
+		errAsStatus := status.Convert(err)
+		return nil, status.Errorf(
+			errAsStatus.Code(),
+			"%s (retrieving cached directory failed with: %v)",
+			errAsStatus.Message(),
+			errors.Join(allCachingErrors...),
+		)
 	}
 
 	// Cache fetched blob with single URI
