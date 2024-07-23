@@ -17,6 +17,7 @@ go_library(
     importpath = "github.com/buildbarn/bb-remote-asset/pkg/fetch",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/proto/asset",
         "//pkg/qualifier",
         "//pkg/storage",
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:asset",
