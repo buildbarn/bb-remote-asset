@@ -53,8 +53,9 @@ func gitCommand(qualifiers map[string]string) func(string) *remoteexecution.Comm
 			script = fmt.Sprintf("%s && git -C out checkout %s", script, commit)
 		}
 		return &remoteexecution.Command{
-			Arguments:   []string{"sh", "-c", script},
-			OutputPaths: []string{"out"},
+			Arguments:             []string{"sh", "-c", script},
+			OutputPaths:           []string{"out"},
+			OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
 		}
 	}
 }
@@ -78,8 +79,9 @@ func octetStreamCommand(qualifiers map[string]string) func(string) *remoteexecut
 		}
 
 		return &remoteexecution.Command{
-			Arguments:   []string{"sh", "-c", script},
-			OutputPaths: []string{"out"},
+			Arguments:             []string{"sh", "-c", script},
+			OutputPaths:           []string{"out"},
+			OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
 		}
 	}
 }

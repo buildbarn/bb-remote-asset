@@ -27,4 +27,15 @@ message Asset {
   // Time at which this Asset was last Push'd or Fetch'd from a remote into the
   // store
   google.protobuf.Timestamp last_updated = 3;
+
+  enum AssetType {
+    // Blob asset, e.g. from PushBlob
+    BLOB = 0;
+
+    // Directory asset, e.g. from PushDirectory
+    DIRECTORY = 1;
+  }
+
+  // The type of the asset.
+  AssetType type = 4;
 }

@@ -40,7 +40,7 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 	}
 
 	assetRef := storage.NewAssetReference(req.Uris, req.Qualifiers)
-	assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
+	assetData := storage.NewBlobAsset(req.BlobDigest, req.ExpireAt)
 	err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (s *assetPushServer) PushBlob(ctx context.Context, req *remoteasset.PushBlo
 	if len(req.Uris) > 1 {
 		for _, uri := range req.Uris {
 			assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
-			assetData := storage.NewAsset(req.BlobDigest, req.ExpireAt)
+			assetData := storage.NewBlobAsset(req.BlobDigest, req.ExpireAt)
 			err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 			if err != nil {
 				return nil, err
@@ -74,7 +74,7 @@ func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.Pu
 	}
 
 	assetRef := storage.NewAssetReference(req.Uris, req.Qualifiers)
-	assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
+	assetData := storage.NewDirectoryAsset(req.RootDirectoryDigest, req.ExpireAt)
 	err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (s *assetPushServer) PushDirectory(ctx context.Context, req *remoteasset.Pu
 	if len(req.Uris) > 1 {
 		for _, uri := range req.Uris {
 			assetRef := storage.NewAssetReference([]string{uri}, req.Qualifiers)
-			assetData := storage.NewAsset(req.RootDirectoryDigest, req.ExpireAt)
+			assetData := storage.NewDirectoryAsset(req.RootDirectoryDigest, req.ExpireAt)
 			err = s.assetStore.Put(ctx, assetRef, assetData, instanceName)
 			if err != nil {
 				return nil, err

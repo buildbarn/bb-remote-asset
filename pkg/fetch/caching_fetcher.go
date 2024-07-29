@@ -89,7 +89,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	// Cache fetched blob with single URI
 	assetRef := storage.NewAssetReference([]string{response.Uri}, response.Qualifiers)
-	assetData := storage.NewAsset(response.BlobDigest, getDefaultTimestamp())
+	assetData := storage.NewBlobAsset(response.BlobDigest, getDefaultTimestamp())
 	err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
 	if err != nil {
 		return response, err
@@ -159,7 +159,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 	// Cache fetched blob with single URI
 	assetRef := storage.NewAssetReference([]string{response.Uri}, response.Qualifiers)
-	assetData := storage.NewAsset(response.RootDirectoryDigest, getDefaultTimestamp())
+	assetData := storage.NewDirectoryAsset(response.RootDirectoryDigest, getDefaultTimestamp())
 	err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
 	if err != nil {
 		return response, err

@@ -25,7 +25,7 @@ func TestAuthorizingBlobAccessGet(t *testing.T) {
 	blobDigest := &remoteexecution.Digest{Hash: "b27cad931e1ef0a520887464127055ffd6db82c7b36bfea5cd832db65b8f816b", SizeBytes: 24}
 	uri := "https://raapi.test/blob"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
-	assetData := storage.NewAsset(blobDigest, timestamppb.Now())
+	assetData := storage.NewBlobAsset(blobDigest, timestamppb.Now())
 
 	baseStore := mock.NewMockAssetStore(ctrl)
 	fetchAuthorizer := mock.NewMockAuthorizer(ctrl)
@@ -58,7 +58,7 @@ func TestAuthorizingBlobAccessPut(t *testing.T) {
 	blobDigest := &remoteexecution.Digest{Hash: "b27cad931e1ef0a520887464127055ffd6db82c7b36bfea5cd832db65b8f816b", SizeBytes: 24}
 	uri := "https://raapi.test/blob"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
-	assetData := storage.NewAsset(blobDigest, timestamppb.Now())
+	assetData := storage.NewBlobAsset(blobDigest, timestamppb.Now())
 
 	baseStore := mock.NewMockAssetStore(ctrl)
 	fetchAuthorizer := mock.NewMockAuthorizer(ctrl)
