@@ -10,6 +10,7 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -48,37 +49,19 @@ func (rs *actionCacheAssetStore) assetToDirectory(ctx context.Context, asset *as
 	return directory.(*remoteexecution.Directory), nil
 }
 
-func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *remoteexecution.ActionResult, instance digest.InstanceName) (*asset.Asset, error) {
+func (rs *actionCacheAssetStore) actionResultToAsset(a *remoteexecution.ActionResult) (*asset.Asset, error) {
 	digest := &remoteexecution.Digest{}
+	assetType := asset.Asset_DIRECTORY
+
 	// Check if there is an output directory in the action result
 	for _, dir := range a.OutputDirectories {
 		if dir.Path == "out" {
-			digest = dir.TreeDigest
+			digest = dir.RootDirectoryDigest
 		}
 	}
-	// If the required output directory is present
-	if digest.Hash != "" {
-		digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(digest.Hash))
-		if err != nil {
-			return nil, err
-		}
-		treeDigest, err := digestFunction.NewDigestFromProto(digest)
-		if err != nil {
-			return nil, err
-		}
-		// The action result contains a tree digest, but a directory digest
-		// is needed, so retrieve the tree message and get the digest of the
-		// root
-		tree, err := rs.contentAddressableStorage.Get(ctx, treeDigest).ToProto(&remoteexecution.Tree{}, rs.maximumMessageSizeBytes)
-		if err != nil {
-			return nil, err
-		}
-		root := tree.(*remoteexecution.Tree).Root
-		digest, err = ProtoToDigest(root)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+
+	if digest == nil || digest.Hash == "" {
+		assetType = asset.Asset_BLOB
 		// Required output directory is not present, look for required
 		// output file
 		for _, file := range a.OutputFiles {
@@ -87,10 +70,16 @@ func (rs *actionCacheAssetStore) actionResultToAsset(ctx context.Context, a *rem
 			}
 		}
 	}
+
+	if digest == nil || digest.Hash == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "could not find digest (either directory or blob) in ActionResult")
+	}
+
 	return &asset.Asset{
 		Digest:      digest,
 		ExpireAt:    getDefaultTimestamp(),
 		LastUpdated: a.ExecutionMetadata.QueuedTimestamp,
+		Type:        assetType,
 	}, nil
 }
 
@@ -147,9 +136,9 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 		&remoteexecution.ActionResult{},
 		rs.maximumMessageSizeBytes)
 	if err != nil {
-		return nil, err
+		return nil, util.StatusWrapf(err, "could not get action from action cache")
 	}
-	return rs.actionResultToAsset(ctx, data.(*remoteexecution.ActionResult), instance)
+	return rs.actionResultToAsset(data.(*remoteexecution.ActionResult))
 }
 
 func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error {
@@ -261,14 +250,23 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 		},
 	}
 
-	// Check if the input asset is a directory or blob
-	d, err := rs.assetToDirectory(ctx, data, instance)
-	if err == nil {
+	if data.Type == asset.Asset_DIRECTORY {
+		d, err := rs.assetToDirectory(ctx, data, instance)
+		if err != nil {
+			// Users will hit this if they upload an digest referencing an
+			// arbitary Blob in `PushDirectory` or a digest that does not
+			// reference any blob at all.
+			return util.StatusWrapf(
+				err,
+				"digest in directory asset does not reference a Directory",
+			)
+		}
+
 		// If it is a directory, construct a tree from it as tree digest is
 		// required for action result
 		tree, err := rs.directoryToTree(ctx, d, instance)
 		if err != nil {
-			return err
+			return status.Errorf(codes.InvalidArgument, "Failed to convert directory to tree (one of the subdirs is not in the CAS?): %v", err)
 		}
 		treePb, err := proto.Marshal(tree)
 		if err != nil {
@@ -286,20 +284,23 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 		if err != nil {
 			return err
 		}
+
+		// Use digest as a root directory digest
 		actionResult.OutputDirectories = []*remoteexecution.OutputDirectory{{
-			Path:       "out",
-			TreeDigest: treeDigest,
+			Path:                "out",
+			RootDirectoryDigest: data.Digest,
+			TreeDigest:          treeDigest,
 		}}
-	} else {
-		// If it isn't a directory, use the digest as an output file digest
-		if status.Code(err) != codes.InvalidArgument {
-			return err
-		}
+	} else if data.Type == asset.Asset_BLOB {
+		// Use the digest as an output file digest
 		actionResult.OutputFiles = []*remoteexecution.OutputFile{{
 			Path:   "out",
 			Digest: data.Digest,
 		}}
+	} else {
+		return status.Errorf(codes.InvalidArgument, "unknown asset type %v", data.Type)
 	}
+
 	return rs.actionCache.Put(ctx, bbActionDigest, buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided))
 }
 

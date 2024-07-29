@@ -47,8 +47,9 @@ func AssetReferenceToDigest(ar *asset.AssetReference, instance digest.InstanceNa
 
 func assetReferenceToAction(ar *asset.AssetReference, directoryDigest *remoteexecution.Digest) (*remoteexecution.Action, *remoteexecution.Command, error) {
 	command := &remoteexecution.Command{
-		Arguments:   ar.Uris,
-		OutputPaths: []string{"out"},
+		Arguments:             ar.Uris,
+		OutputPaths:           []string{"out"},
+		OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
 	}
 	commandDigest, err := ProtoToDigest(command)
 	if err != nil {

@@ -38,6 +38,8 @@ func TestFetchBlobCaching(t *testing.T) {
 	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
 	require.NoError(t, err)
 
+	t.Logf("Ref digest was %v", refDigest)
+
 	backend := mock.NewMockBlobAccess(ctrl)
 	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	mockFetcher := mock.NewMockFetcher(ctrl)
@@ -56,6 +58,7 @@ func TestFetchBlobCaching(t *testing.T) {
 				require.NoError(t, err)
 				a := m.(*asset.Asset)
 				require.True(t, proto.Equal(a.Digest, blobDigest))
+				require.Equal(t, asset.Asset_BLOB, a.Type)
 				return nil
 			}).After(fetchBlobCall)
 		response, err := cachingFetcher.FetchBlob(ctx, request)
@@ -71,7 +74,7 @@ func TestFetchBlobCaching(t *testing.T) {
 	})
 
 	t.Run("Cached", func(t *testing.T) {
-		backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewProtoBufferFromProto(storage.NewAsset(blobDigest, nil), buffer.UserProvided))
+		backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(blobDigest, nil), buffer.UserProvided))
 		response, err := cachingFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -111,6 +114,7 @@ func TestFetchDirectoryCaching(t *testing.T) {
 				require.NoError(t, err)
 				a := m.(*asset.Asset)
 				require.True(t, proto.Equal(a.Digest, dirDigest))
+				require.Equal(t, asset.Asset_DIRECTORY, a.Type)
 				return nil
 			}).After(fetchDirectoryCall)
 		response, err := cachingFetcher.FetchDirectory(ctx, request)
@@ -126,7 +130,7 @@ func TestFetchDirectoryCaching(t *testing.T) {
 	})
 
 	t.Run("Cached", func(t *testing.T) {
-		backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewProtoBufferFromProto(storage.NewAsset(dirDigest, nil), buffer.UserProvided))
+		backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(dirDigest, nil), buffer.UserProvided))
 		response, err := cachingFetcher.FetchDirectory(ctx, request)
 		require.Nil(t, err)
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -191,6 +195,7 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 			SizeBytes: 234,
 		},
 		LastUpdated: ts,
+		Type:        asset.Asset_BLOB,
 	}, buffer.UserProvided)
 	backend.EXPECT().Get(ctx, refDigest).Return(buf)
 	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
