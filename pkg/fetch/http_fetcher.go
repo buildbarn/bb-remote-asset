@@ -3,7 +3,6 @@ package fetch
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"io"
@@ -50,9 +49,13 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	// TODO: Address the following fields
 	// timeout := ptypes.Duration(req.timeout)
 	// oldestContentAccepted := ptypes.Timestamp(req.oldestContentAccepted)
-	expectedDigest, err := getChecksumSri(req.Qualifiers)
+	expectedDigest, digestFunctionEnum, err := getChecksumSri(req.Qualifiers)
 	if err != nil {
 		return nil, err
+	}
+	if digestFunctionEnum == remoteexecution.DigestFunction_UNKNOWN {
+		// Default to SHA256 if no digest is provided.
+		digestFunctionEnum = remoteexecution.DigestFunction_SHA256
 	}
 
 	auth, err := getAuthHeaders(req.Qualifiers)
@@ -61,8 +64,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	for _, uri := range req.Uris {
-
-		buffer, digest := hf.downloadBlob(ctx, uri, instanceName, expectedDigest, auth)
+		buffer, digest := hf.downloadBlob(ctx, uri, instanceName, expectedDigest, digestFunctionEnum, auth)
 		if _, err = buffer.GetSizeBytes(); err != nil {
 			log.Printf("Error downloading blob with URI %s: %v", uri, err)
 			continue
@@ -91,7 +93,7 @@ func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri", "bazel.auth_headers", "bazel.canonical_id"}))
 }
 
-func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
+func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, digestFunctionEnum remoteexecution.DigestFunction_Value, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest
@@ -109,6 +111,11 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceNam
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("Error downloading blob with URI %s: %v", uri, resp.StatusCode)
 		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest
+	}
+
+	digestFunction, err := instanceName.GetDigestFunction(digestFunctionEnum, len(expectedDigest))
+	if err != nil {
+		return buffer.NewBufferFromError(util.StatusWrapfWithCode(err, codes.Internal, "Failed to get digest function for instance: %v", instanceName)), bb_digest.BadDigest
 	}
 
 	// Work out the digest of the downloaded data
@@ -138,17 +145,13 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceNam
 		// If we don't know what the hash should be we will need to work out the
 		// actual hash of the content
 		if expectedDigest == "" {
-			hasher := sha256.New()
+			hasher := digestFunction.NewGenerator(length)
 			hasher.Write(bodyBytes)
-			hash := hasher.Sum(nil)
-			expectedDigest = hex.EncodeToString(hash)
+			digest := hasher.Sum()
+			expectedDigest = digest.GetHashString()
 		}
 
 		body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	}
-	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(expectedDigest))
-	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapfWithCode(err, codes.Internal, "Failed to get digest function for instance: %v", instanceName)), bb_digest.BadDigest
 	}
 	digest, err := digestFunction.NewDigest(expectedDigest, length)
 	if err != nil {
@@ -160,21 +163,41 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceNam
 	return buffer.NewCASBufferFromReader(digest, body, buffer.UserProvided), digest
 }
 
-func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, error) {
+func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, remoteexecution.DigestFunction_Value, error) {
+	hashTypes := map[string]remoteexecution.DigestFunction_Value{
+		"sha256":     remoteexecution.DigestFunction_SHA256,
+		"sha1":       remoteexecution.DigestFunction_SHA1,
+		"md5":        remoteexecution.DigestFunction_MD5,
+		"sha384":     remoteexecution.DigestFunction_SHA384,
+		"sha512":     remoteexecution.DigestFunction_SHA512,
+		"sha256tree": remoteexecution.DigestFunction_SHA256TREE,
+	}
+	expectedDigest := ""
+	digestFunctionEnum := remoteexecution.DigestFunction_UNKNOWN
 	for _, qualifier := range qualifiers {
 		if qualifier.Name == "checksum.sri" {
-			if strings.HasPrefix(qualifier.Value, "sha256-") {
-				b64hash := strings.TrimPrefix(qualifier.Value, "sha256-")
-				decoded, err := base64.StdEncoding.DecodeString(b64hash)
-				if err != nil {
-					return "", status.Errorf(codes.InvalidArgument, "Failed to decode checksum as b64 encoded sha256 sum: %s", err.Error())
-				}
-				return hex.EncodeToString(decoded), nil
+			if digestFunctionEnum != remoteexecution.DigestFunction_UNKNOWN {
+				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Multiple checksum.sri provided")
 			}
-			return "", status.Errorf(codes.InvalidArgument, "Non sha256 checksums are not supported")
+			parts := strings.SplitN(qualifier.Value, "-", 2)
+			if len(parts) != 2 {
+				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Bad checksum.sri hash expression: %s", qualifier.Value)
+			}
+			hashName := parts[0]
+			b64hash := parts[1]
+			var ok bool
+			digestFunctionEnum, ok = hashTypes[hashName]
+			if !ok {
+				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Unsupported checksum algorithm %s", hashName)
+			}
+			decoded, err := base64.StdEncoding.DecodeString(b64hash)
+			if err != nil {
+				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Failed to decode checksum as base64 encoded %s sum: %s", hashName, err.Error())
+			}
+			expectedDigest = hex.EncodeToString(decoded)
 		}
 	}
-	return "", nil
+	return expectedDigest, digestFunctionEnum, nil
 }
 
 func getAuthHeaders(qualifiers []*remoteasset.Qualifier) (*AuthHeaders, error) {
