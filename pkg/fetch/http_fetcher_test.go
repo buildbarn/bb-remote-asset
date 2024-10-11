@@ -102,7 +102,7 @@ func TestHTTPFetcherFetchBlobSuccessSha256tree(t *testing.T) {
 	)
 }
 
-func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum remoteexecution.DigestFunction_Value, hexHash string, sriChecksum string) {
+func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum remoteexecution.DigestFunction_Value, hexHash, sriChecksum string) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	request := &remoteasset.FetchBlobRequest{
