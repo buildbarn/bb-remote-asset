@@ -2,6 +2,7 @@ package fetch_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -24,7 +25,7 @@ type headerMatcher struct {
 }
 
 func (hm *headerMatcher) String() string {
-	return "has headers"
+	return fmt.Sprintf("has headers: %v", hm.headers)
 }
 
 func (hm *headerMatcher) Matches(x interface{}) bool {
@@ -187,7 +188,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		require.Equal(t, status.Code(err), codes.NotFound)
 	})
 
-	t.Run("WithAuthHeaders", func(t *testing.T) {
+	t.Run("WithLegacyAuthHeaders", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
 			InstanceName: "",
 			Uris:         []string{uri},
@@ -214,6 +215,60 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			ContentLength: 5,
 		}, nil)
 		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.Nil(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+	})
+
+	t.Run("WithAuthHeaders", func(t *testing.T) {
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: "",
+			Uris:         []string{"www.another.com", uri},
+			Qualifiers: []*remoteasset.Qualifier{
+				{
+					Name:  "http_header:Authorization",
+					Value: `Bearer anothertoken`,
+				},
+				{
+					Name:  "http_header:Accept",
+					Value: "application/vnd.docker.distribution.manifest.list.v2+json",
+				},
+				{
+					Name:  "http_header_url:1:Authorization",
+					Value: `Bearer letmein1`,
+				},
+				{
+					Name:  "checksum.sri",
+					Value: "sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
+				},
+			},
+		}
+		matcherReq1 := &headerMatcher{
+			headers: map[string]string{
+				"Authorization": "Bearer anothertoken",
+				"Accept":        "application/vnd.docker.distribution.manifest.list.v2+json",
+			},
+		}
+		matcherReq2 := &headerMatcher{
+			headers: map[string]string{
+				"Authorization": "Bearer letmein1",
+				"Accept":        "application/vnd.docker.distribution.manifest.list.v2+json",
+			},
+		}
+		roundTripper.EXPECT().RoundTrip(matcherReq1).Return(&http.Response{
+			Status:     "404 NotFound",
+			StatusCode: 404,
+		}, nil)
+		httpDoCall2 := roundTripper.EXPECT().RoundTrip(matcherReq2).Return(&http.Response{
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall2)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
