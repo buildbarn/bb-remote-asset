@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
@@ -21,6 +22,15 @@ import (
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	// Older versions of bazel send headers like this
+	QualifierLegacyBazelHttpHeaders = "bazel.auth_headers"
+	// Global headers for all URLs
+	QualifierHttpHeaderPrefix = "http_header:"
+	// Per URL headers
+	QualifierHttpHeaderURLPrefix = "http_header_url:"
 )
 
 type httpFetcher struct {
@@ -58,7 +68,7 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 		digestFunctionEnum = remoteexecution.DigestFunction_SHA256
 	}
 
-	auth, err := getAuthHeaders(req.Qualifiers)
+	auth, err := getAuthHeaders(req.Uris, req.Qualifiers)
 	if err != nil {
 		return nil, err
 	}
@@ -200,11 +210,44 @@ func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, remoteexecutio
 	return expectedDigest, digestFunctionEnum, nil
 }
 
-func getAuthHeaders(qualifiers []*remoteasset.Qualifier) (*AuthHeaders, error) {
+func getAuthHeaders(uris []string, qualifiers []*remoteasset.Qualifier) (*AuthHeaders, error) {
+	ah := AuthHeaders{}
+	perURLQualifiers := map[string]string{}
 	for _, qualifier := range qualifiers {
-		if qualifier.Name == "bazel.auth_headers" {
+		// If this is set, then any other headers are ignored
+		// as this is the only way to set headers in older versions of bazel
+		if qualifier.Name == QualifierLegacyBazelHttpHeaders {
 			return NewAuthHeadersFromQualifier(qualifier.Value)
 		}
+
+		if strings.HasPrefix(qualifier.Name, QualifierHttpHeaderPrefix) {
+			header := strings.TrimPrefix(qualifier.Name, QualifierHttpHeaderPrefix)
+			for _, uri := range uris {
+				ah.AddHeader(uri, header, qualifier.Value)
+			}
+		}
+
+		if strings.HasPrefix(qualifier.Name, QualifierHttpHeaderURLPrefix) {
+			perURLQualifiers[qualifier.Name] = qualifier.Value
+		}
 	}
-	return nil, nil
+	// If we have per URL headers, we need to go through and apply them after applying the global headers.
+	for k, v := range perURLQualifiers {
+		parts := strings.Split(k, ":")
+		if len(parts) != 3 {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid http_header_url qualifier: %s", k)
+		}
+		uriIdx, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid http_header_url qualifier: %s: Bad URL index: %v: %v", k, parts[1], err)
+		}
+		if uriIdx < 0 || uriIdx >= int64(len(uris)) {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid http_header_url qualifier: %s: URL index out of range: %v", k, uriIdx)
+		}
+		header := parts[2]
+		ah.AddHeader(uris[uriIdx], header, v)
+
+	}
+
+	return &ah, nil
 }

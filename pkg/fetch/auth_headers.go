@@ -15,6 +15,19 @@ func NewAuthHeadersFromQualifier(value string) (*AuthHeaders, error) {
 	return &ah, err
 }
 
+// NewAuthHeaders creates an empty AuthHeaders
+func NewAuthHeaders() *AuthHeaders {
+	return &AuthHeaders{}
+}
+
+// AddHeader adds a header to the AuthHeaders
+func (ah AuthHeaders) AddHeader(uri, header, value string) {
+	if _, ok := ah[uri]; !ok {
+		ah[uri] = make(map[string]string)
+	}
+	ah[uri][header] = value
+}
+
 // ApplyHeaders mutates a http.Request to apply headers requested by the client.
 func (ah AuthHeaders) ApplyHeaders(uri string, req *http.Request) {
 	if headers, ok := ah[uri]; ok {
