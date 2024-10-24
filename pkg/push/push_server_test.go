@@ -42,7 +42,7 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 		BlobDigest:   blobDigest,
 		Qualifiers:   qualifiers,
 	}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, qualifiers), instanceName)
+	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, qualifiers), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -82,7 +82,7 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 		RootDirectoryDigest: rootDirectoryDigest,
 		Qualifiers:          qualifiers,
 	}
-	refDigest, err := storage.AssetReferenceToDigest(storage.NewAssetReference([]string{uri}, qualifiers), instanceName)
+	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, qualifiers), instanceName)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)

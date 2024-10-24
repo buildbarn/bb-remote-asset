@@ -280,9 +280,9 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		},
 	}
 
-	rootDirectoryDigest, err := storage.ProtoToDigest(tree.Root)
+	_, rootDirectoryDigest, err := storage.ProtoSerialise(tree.Root)
 	require.NoError(t, err)
-	treeDigest, err := storage.ProtoToDigest(tree)
+	_, treeDigest, err := storage.ProtoSerialise(tree)
 	require.NoError(t, err)
 
 	t.Logf("rootDirectoryDigest %v", rootDirectoryDigest)

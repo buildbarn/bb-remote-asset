@@ -27,7 +27,7 @@ func TestBlobAccessAssetStorePut(t *testing.T) {
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
 	assetData := storage.NewBlobAsset(blobDigest, timestamppb.Now())
-	refDigest, err := storage.AssetReferenceToDigest(assetRef, instanceName)
+	refDigest, err := storage.ProtoToDigest(assetRef, instanceName)
 	require.NoError(t, err)
 
 	blobAccess := mock.NewMockBlobAccess(ctrl)
@@ -54,7 +54,7 @@ func TestBlobAccessAssetStoreGet(t *testing.T) {
 	blobDigest := &remoteexecution.Digest{Hash: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f", SizeBytes: 222}
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
-	refDigest, err := storage.AssetReferenceToDigest(assetRef, instanceName)
+	refDigest, err := storage.ProtoToDigest(assetRef, instanceName)
 	require.NoError(t, err)
 
 	buf := buffer.NewProtoBufferFromProto(&asset.Asset{Digest: blobDigest}, buffer.UserProvided)
