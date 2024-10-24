@@ -46,7 +46,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 	}
 	for _, uri := range req.Uris {
 		command := commandGenerator(uri)
-		commandDigest, err := storage.ProtoToDigest(command)
+		_, commandDigest, err := storage.ProtoSerialise(command)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -59,7 +59,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			CommandDigest:   commandDigest,
 			InputRootDigest: storage.EmptyDigest,
 		}
-		actionDigest, err := storage.ProtoToDigest(action)
+		_, actionDigest, err := storage.ProtoSerialise(action)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -208,7 +208,7 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 		return nil, err
 	}
 	root := tree.(*remoteexecution.Tree).Root
-	rootDigest, err := storage.ProtoToDigest(root)
+	_, rootDigest, err := storage.ProtoSerialise(root)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 		return nil, err
 	}
 	for _, child := range tree.(*remoteexecution.Tree).Children {
-		childDigest, err := storage.ProtoToDigest(child)
+		_, childDigest, err := storage.ProtoSerialise(child)
 		if err != nil {
 			return nil, err
 		}
