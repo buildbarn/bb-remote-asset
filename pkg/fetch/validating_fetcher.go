@@ -29,6 +29,9 @@ func (vf *validatingFetcher) FetchBlob(ctx context.Context, req *remoteasset.Fet
 	if len(req.Uris) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "FetchBlob does not support requests without any URIs specified.")
 	}
+	if len(req.Qualifiers) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "FetchBlob does not support requests without any Qualifiers specified.")
+	}
 	if unsupported := vf.CheckQualifiers(qualifier.QualifiersToSet(req.Qualifiers)); !(unsupported.IsEmpty()) {
 		violations := []*errdetails.BadRequest_FieldViolation{}
 		for q := range unsupported {
