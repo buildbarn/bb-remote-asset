@@ -3,34 +3,30 @@ module(name = "com_github_buildbarn_bb_remote_asset")
 bazel_dep(name = "com_github_buildbarn_bb_storage")
 bazel_dep(name = "bazel_remote_apis", version = "0.0.0")
 bazel_dep(name = "gazelle", version = "0.38.0")
-bazel_dep(name = "googleapis", version = "0.0.0-20240326-1c8d509c5")
+bazel_dep(name = "googleapis", version = "0.0.0-20240819-fe8ba054a")
 bazel_dep(name = "jsonnet_go", version = "0.20.0", repo_name = "google_jsonnet_go")
-bazel_dep(name = "protobuf", version = "27.3")
-bazel_dep(name = "rules_go", version = "0.50.0")
+bazel_dep(name = "protobuf", version = "28.1")
+bazel_dep(name = "rules_go", version = "0.50.1")
 bazel_dep(name = "rules_jsonnet", version = "0.6.0")
 bazel_dep(name = "rules_proto", version = "6.0.2")
-bazel_dep(name = "toolchains_llvm", version = "1.0.0")
+bazel_dep(name = "toolchains_llvm", version = "1.1.2")
 
 git_override(
     module_name = "com_github_buildbarn_bb_storage",
-    commit = "a889bc06a4070e34f5b7d85073dabaa37bfc3027",
+    commit = "8abbcfab01bcde294b20c2070baba9fd242bab7f",
     remote = "https://github.com/buildbarn/bb-storage.git",
 )
 
 git_override(
     module_name = "bazel_remote_apis",
-    commit = "9a250a0f817fe63a426ede43b133c3dc4549d75f",
-    patches = ["//:patches/bazel_remote_apis/grpc-v2.diff"],
+    commit = "6777112ef7defa6705b1ebd2831d6c7efeb12ba2",
     remote = "https://github.com/bazelbuild/remote-apis.git",
 )
 
 git_override(
     module_name = "gazelle",
     commit = "4d0129d7adae33e8e648d3624aff8fa8f93f375b",
-    patches = [
-        "//:patches/gazelle/dont-flatten-srcs.diff",
-        "//:patches/gazelle/googleapis.diff",
-    ],
+    patches = ["//:patches/gazelle/dont-flatten-srcs.diff"],
     remote = "https://github.com/bazelbuild/bazel-gazelle.git",
 )
 
@@ -40,7 +36,6 @@ use_repo(
     go_deps,
     "cc_mvdan_gofumpt",
     "com_github_bazelbuild_buildtools",
-    "com_github_bazelbuild_remote_apis",
     "com_github_golang_mock",
     "com_github_prometheus_client_golang",
     "com_github_stretchr_testify",
@@ -51,20 +46,6 @@ use_repo(
 )
 
 go_deps_dev = use_extension("@gazelle//:extensions.bzl", "go_deps", dev_dependency = True)
-go_deps_dev.gazelle_override(
-    build_file_generation = "on",
-    directives = [
-        "gazelle:go_grpc_compilers @io_bazel_rules_go//proto:go_proto,@io_bazel_rules_go//proto:go_grpc_v2",
-        "gazelle:resolve proto go build/bazel/semver/semver.proto //build/bazel/semver",
-        "gazelle:resolve proto go google/api/annotations.proto @org_golang_google_genproto_googleapis_api//annotations",
-        "gazelle:resolve proto go google/longrunning/operations.proto @com_google_cloud_go_longrunning//autogen/longrunningpb",
-        "gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status",
-        "gazelle:resolve proto google/api/annotations.proto @googleapis//google/api:annotations_proto",
-        "gazelle:resolve proto google/longrunning/operations.proto @googleapis//google/longrunning:operations_proto",
-        "gazelle:resolve proto google/rpc/status.proto @googleapis//google/rpc:status_proto",
-    ],
-    path = "github.com/bazelbuild/remote-apis",
-)
 go_deps_dev.module_override(
     patches = ["@com_github_buildbarn_bb_storage//:patches/com_github_grpc_ecosystem_go_grpc_prometheus/client-metrics-prevent-handled-twice.diff"],
     path = "github.com/grpc-ecosystem/go-grpc-prometheus",
