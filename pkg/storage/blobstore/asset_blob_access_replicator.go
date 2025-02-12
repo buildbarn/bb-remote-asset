@@ -20,6 +20,10 @@ func (brc assetBlobReplicatorCreator) NewCustomBlobReplicator(configuration *pb.
 	return nil, status.Error(codes.InvalidArgument, "Configuration did not contain a supported replicator")
 }
 
+func (brc assetBlobReplicatorCreator) GetStorageTypeName() string {
+	return "asset"
+}
+
 // AssetBlobReplicatorCreator is a BlobReplicatorCreator capable of creating
 // BlobReplicators suitable for replicating Assets.
 var AssetBlobReplicatorCreator configuration.BlobReplicatorCreator = assetBlobReplicatorCreator{}
