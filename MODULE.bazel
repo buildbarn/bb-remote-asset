@@ -52,6 +52,10 @@ go_deps_dev.module_override(
     patches = ["@com_github_buildbarn_bb_storage//:patches/com_github_grpc_ecosystem_go_grpc_prometheus/client-metrics-prevent-handled-twice.diff"],
     path = "github.com/grpc-ecosystem/go-grpc-prometheus",
 )
+go_deps_dev.module_override(
+    patches = ["@com_github_buildbarn_bb_storage//:patches/org_golang_x_sys/o-search.diff"],
+    path = "golang.org/x/sys",
+)
 
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
 llvm.toolchain(
