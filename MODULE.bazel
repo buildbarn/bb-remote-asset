@@ -44,6 +44,10 @@ use_repo(
 )
 
 go_deps_dev = use_extension("@gazelle//:extensions.bzl", "go_deps", dev_dependency = True)
+go_deps_dev.gazelle_override(
+    build_file_generation = "on",
+    path = "github.com/cncf/xds/go",
+)
 go_deps_dev.module_override(
     patches = ["@com_github_buildbarn_bb_storage//:patches/com_github_grpc_ecosystem_go_grpc_prometheus/client-metrics-prevent-handled-twice.diff"],
     path = "github.com/grpc-ecosystem/go-grpc-prometheus",
