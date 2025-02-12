@@ -13,13 +13,13 @@ bazel_dep(name = "toolchains_llvm", version = "1.2.0")
 
 git_override(
     module_name = "com_github_buildbarn_bb_storage",
-    commit = "8abbcfab01bcde294b20c2070baba9fd242bab7f",
+    commit = "07366c6f20a1af59514be32a349af56f1960a267",
     remote = "https://github.com/buildbarn/bb-storage.git",
 )
 
 git_override(
     module_name = "bazel_remote_apis",
-    commit = "6777112ef7defa6705b1ebd2831d6c7efeb12ba2",
+    commit = "253013303c9e1d52ebdeb5a3f0f869919e882f20",
     remote = "https://github.com/bazelbuild/remote-apis.git",
 )
 
