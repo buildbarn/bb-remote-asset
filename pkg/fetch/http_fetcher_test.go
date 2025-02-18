@@ -9,6 +9,7 @@ import (
 
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
+	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/testutil"
 
@@ -334,6 +335,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				},
 			},
 		}
+		require.Empty(t, HTTPFetcher.CheckQualifiers(qualifier.QualifiersToSet(request.Qualifiers)))
 		matcher := &headerMatcher{
 			headers: map[string]string{
 				"Authorization": "Bearer letmein",
@@ -376,6 +378,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				},
 			},
 		}
+		require.Empty(t, HTTPFetcher.CheckQualifiers(qualifier.QualifiersToSet(request.Qualifiers)))
 		matcherReq1 := &headerMatcher{
 			headers: map[string]string{
 				"Authorization": "Bearer anothertoken",

@@ -102,7 +102,13 @@ func (hf *httpFetcher) FetchDirectory(ctx context.Context, req *remoteasset.Fetc
 }
 
 func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
-	return qualifier.Difference(qualifiers, qualifier.NewSet([]string{"checksum.sri", "bazel.auth_headers", "bazel.canonical_id"}))
+	toRemove := qualifier.NewSet([]string{"checksum.sri", QualifierLegacyBazelHTTPHeaders, "bazel.canonical_id"})
+	for name := range qualifiers {
+		if strings.HasPrefix(name, QualifierHTTPHeaderPrefix) || strings.HasPrefix(name, QualifierHTTPHeaderURLPrefix) {
+			toRemove.Add(name)
+		}
+	}
+	return qualifier.Difference(qualifiers, toRemove)
 }
 
 func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, digestFunctionEnum remoteexecution.DigestFunction_Value, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
