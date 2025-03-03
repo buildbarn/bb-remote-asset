@@ -13,7 +13,7 @@ bazel_dep(name = "toolchains_llvm", version = "1.2.0")
 
 git_override(
     module_name = "com_github_buildbarn_bb_storage",
-    commit = "07366c6f20a1af59514be32a349af56f1960a267",
+    commit = "85aafcb236ac1365a693d9390a6813db99dbaa0f",
     remote = "https://github.com/buildbarn/bb-storage.git",
 )
 
@@ -28,6 +28,11 @@ single_version_override(
     patches = ["//:patches/gazelle/dont-flatten-srcs.diff"],
 )
 
+single_version_override(
+    module_name = "jsonnet",
+    patches = ["//:patches/jsonnet/bazel-8.diff"],
+)
+
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
@@ -37,6 +42,7 @@ use_repo(
     "com_github_golang_mock",
     "com_github_prometheus_client_golang",
     "com_github_stretchr_testify",
+    "org_golang_google_genproto",
     "org_golang_google_genproto_googleapis_rpc",
     "org_golang_google_grpc",
     "org_golang_google_protobuf",
