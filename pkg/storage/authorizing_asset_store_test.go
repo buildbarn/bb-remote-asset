@@ -21,6 +21,8 @@ func TestAuthorizingBlobAccessGet(t *testing.T) {
 
 	instanceName := bb_digest.MustNewInstanceName("rohan")
 	instanceSlice := []bb_digest.InstanceName{instanceName}
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{Hash: "b27cad931e1ef0a520887464127055ffd6db82c7b36bfea5cd832db65b8f816b", SizeBytes: 24}
 	uri := "https://raapi.test/blob"
@@ -34,9 +36,9 @@ func TestAuthorizingBlobAccessGet(t *testing.T) {
 
 	t.Run("Allowed", func(t *testing.T) {
 		fetchAuthorizer.EXPECT().Authorize(ctx, instanceSlice).Return([]error{nil})
-		baseStore.EXPECT().Get(ctx, assetRef, instanceName).Return(assetData, nil)
+		baseStore.EXPECT().Get(ctx, assetRef, digestFunction).Return(assetData, nil)
 
-		gotAsset, err := aas.Get(ctx, assetRef, instanceName)
+		gotAsset, err := aas.Get(ctx, assetRef, digestFunction)
 		require.NoError(t, err)
 		require.Equal(t, assetData, gotAsset)
 	})
@@ -44,7 +46,7 @@ func TestAuthorizingBlobAccessGet(t *testing.T) {
 	t.Run("Rejected", func(t *testing.T) {
 		fetchAuthorizer.EXPECT().Authorize(ctx, instanceSlice).Return([]error{status.Error(codes.PermissionDenied, "None shall pass")})
 
-		_, err := aas.Get(ctx, assetRef, instanceName)
+		_, err := aas.Get(ctx, assetRef, digestFunction)
 		require.Equal(t, status.Error(codes.PermissionDenied, "None shall pass"), err)
 	})
 }
@@ -54,6 +56,8 @@ func TestAuthorizingBlobAccessPut(t *testing.T) {
 
 	instanceName := bb_digest.MustNewInstanceName("rohan")
 	instanceSlice := []bb_digest.InstanceName{instanceName}
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{Hash: "b27cad931e1ef0a520887464127055ffd6db82c7b36bfea5cd832db65b8f816b", SizeBytes: 24}
 	uri := "https://raapi.test/blob"
@@ -67,16 +71,16 @@ func TestAuthorizingBlobAccessPut(t *testing.T) {
 
 	t.Run("Allowed", func(t *testing.T) {
 		pushAuthorizer.EXPECT().Authorize(ctx, instanceSlice).Return([]error{nil})
-		baseStore.EXPECT().Put(ctx, assetRef, assetData, instanceName).Return(nil)
+		baseStore.EXPECT().Put(ctx, assetRef, assetData, digestFunction).Return(nil)
 
-		err := aas.Put(ctx, assetRef, assetData, instanceName)
+		err := aas.Put(ctx, assetRef, assetData, digestFunction)
 		require.NoError(t, err)
 	})
 
 	t.Run("Rejected", func(t *testing.T) {
 		pushAuthorizer.EXPECT().Authorize(ctx, instanceSlice).Return([]error{status.Error(codes.PermissionDenied, "None shall pass")})
 
-		err := aas.Put(ctx, assetRef, assetData, instanceName)
+		err := aas.Put(ctx, assetRef, assetData, digestFunction)
 		require.Equal(t, status.Error(codes.PermissionDenied, "None shall pass"), err)
 	})
 }

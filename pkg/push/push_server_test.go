@@ -24,6 +24,9 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 
 	instanceName, err := digest.NewInstanceName("")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
+
 	blobDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
 	uri := "https://example.com/example.txt"
 	qualifiers := []*remoteasset.Qualifier{
@@ -42,7 +45,7 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 		BlobDigest:   blobDigest,
 		Qualifiers:   qualifiers,
 	}
-	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, qualifiers), instanceName)
+	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, qualifiers), digestFunction)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -68,6 +71,9 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 
 	instanceName, err := digest.NewInstanceName("")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
+
 	rootDirectoryDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
 	uri := "https://example.com/example.txt"
 	qualifiers := []*remoteasset.Qualifier{
@@ -82,7 +88,7 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 		RootDirectoryDigest: rootDirectoryDigest,
 		Qualifiers:          qualifiers,
 	}
-	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, qualifiers), instanceName)
+	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, qualifiers), digestFunction)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
