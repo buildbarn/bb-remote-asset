@@ -53,14 +53,14 @@ func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.B
 // This does not interact with the CAS in any way.  If using this to upload
 // an Action and ActionResult, then the Command and all objects returned must be
 // uploaded to the CAS to ensure referential integrity.
-func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReference) (*remoteexecution.Action, []proto.Message, error) {
+func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReference, digestFunction digest.Function) (*remoteexecution.Action, []proto.Message, error) {
 	objects := []proto.Message{}
 
 	// 1. Create a reference excluding the URIs.
 	//    This is used to associate the Qualifiers with the Action, which
 	//    must all match, but not the URIs, which can match individually.
 	qr := NewAssetReference(nil, ref.Qualifiers)
-	_, qrDigest, err := ProtoSerialise(qr)
+	_, qrDigest, err := ProtoSerialise(qr, digestFunction)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -70,10 +70,10 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 	directory := &remoteexecution.Directory{
 		Files: []*remoteexecution.FileNode{{
 			Name:   "AssetReference",
-			Digest: qrDigest,
+			Digest: qrDigest.GetProto(),
 		}},
 	}
-	_, directoryDigest, err := ProtoSerialise(directory)
+	_, directoryDigest, err := ProtoSerialise(directory, digestFunction)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,26 +89,26 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 			OutputPaths:           []string{"out"},
 			OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
 		}
-		_, commandDigest, err := ProtoSerialise(command)
+		_, commandDigest, err := ProtoSerialise(command, digestFunction)
 		if err != nil {
 			return nil, nil, err
 		}
 		objects = append(objects, command)
 		action = &remoteexecution.Action{
-			CommandDigest:   commandDigest,
-			InputRootDigest: directoryDigest,
+			CommandDigest:   commandDigest.GetProto(),
+			InputRootDigest: directoryDigest.GetProto(),
 		}
 	} else {
 		// Generate a command based on the qualifiers
 		command := commandGenerator(ref.Uris[0])
-		_, commandDigest, err := ProtoSerialise(command)
+		_, commandDigest, err := ProtoSerialise(command, digestFunction)
 		if err != nil {
 			return nil, nil, err
 		}
 		objects = append(objects, command)
 		action = &remoteexecution.Action{
-			CommandDigest:   commandDigest,
-			InputRootDigest: EmptyDigest,
+			CommandDigest:   commandDigest.GetProto(),
+			InputRootDigest: EmptyDigest(digestFunction).GetProto(),
 		}
 	}
 
@@ -122,7 +122,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 // Tree proto in order to be referenced by the ActionResult.  The Tree protos are
 // uploaded in this method, so that the ActionResult returned has referential
 // integrity with the CAS.
-func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *asset.Asset, instance digest.InstanceName) (*remoteexecution.ActionResult, error) {
+func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *asset.Asset, digestFunction digest.Function) (*remoteexecution.ActionResult, error) {
 	result := &remoteexecution.ActionResult{
 		ExecutionMetadata: &remoteexecution.ExecutedActionMetadata{
 			QueuedTimestamp: data.LastUpdated,
@@ -136,10 +136,6 @@ func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *
 		// CAS.
 
 		// 1. Get the asset from the CAS and parse it as a Directory
-		digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(data.Digest.GetHash()))
-		if err != nil {
-			return nil, err
-		}
 		digest, err := digestFunction.NewDigestFromProto(data.Digest)
 		if err != nil {
 			return nil, err
@@ -157,22 +153,25 @@ func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *
 		directory := d.(*remoteexecution.Directory)
 
 		// 2. Construct a Tree from the Directory and upload it to the CAS
-		tree, err := rs.directoryToTree(ctx, directory, instance)
+		tree, err := rs.directoryToTree(ctx, directory, digestFunction)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "Failed to convert directory to tree (one of the subdirs is not in the CAS?): %v", err)
 		}
 
-		treePb, treeDigest, err := ProtoSerialise(tree)
+		treePb, treeDigest, err := ProtoSerialise(tree, digestFunction)
 		if err != nil {
 			return nil, err
 		}
-		rs.uploadToCAS(ctx, treePb, treeDigest, instance)
+		err = rs.contentAddressableStorage.Put(ctx, treeDigest, treePb)
+		if err != nil {
+			return nil, err
+		}
 
 		// 3. Use the directory from the asset as the directory "out" in the ActionResult.
 		result.OutputDirectories = []*remoteexecution.OutputDirectory{{
 			Path:                "out",
 			RootDirectoryDigest: data.Digest,
-			TreeDigest:          treeDigest,
+			TreeDigest:          treeDigest.GetProto(),
 		}}
 	} else if data.Type == asset.Asset_BLOB {
 		// Simply use the digest as an Output File, called "out"
@@ -222,12 +221,12 @@ func (rs *actionCacheAssetStore) actionResultToAsset(a *remoteexecution.ActionRe
 	}, nil
 }
 
-func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetReference, instance digest.InstanceName) (*asset.Asset, error) {
-	action, _, err := rs.assetReferenceToAction(ref)
+func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetReference, digestFunction digest.Function) (*asset.Asset, error) {
+	action, _, err := rs.assetReferenceToAction(ref, digestFunction)
 	if err != nil {
 		return nil, err
 	}
-	digest, err := ProtoToDigest(action, instance)
+	_, digest, err := ProtoSerialise(action, digestFunction)
 
 	data, err := rs.actionCache.Get(ctx, digest).ToProto(
 		&remoteexecution.ActionResult{},
@@ -238,78 +237,50 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	return rs.actionResultToAsset(data.(*remoteexecution.ActionResult))
 }
 
-func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error {
+func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, digestFunction digest.Function) error {
 	// Convert the AssetReference to an Action
-	action, extraObjs, err := rs.assetReferenceToAction(ref)
+	action, extraObjs, err := rs.assetReferenceToAction(ref, digestFunction)
 	if err != nil {
 		return err
 	}
 
 	// Upload the Action
-	actionPb, actionDigest, err := ProtoSerialise(action)
+	actionPb, actionDigest, err := ProtoSerialise(action, digestFunction)
 	if err != nil {
 		return err
 	}
-	err = rs.uploadToCAS(ctx, actionPb, actionDigest, instance)
+	err = rs.contentAddressableStorage.Put(ctx, actionDigest, actionPb)
 	if err != nil {
 		return err
 	}
 
 	// Upload extra things required for referential integrity
 	for _, obj := range extraObjs {
-		err = rs.uploadProtoToCAS(ctx, obj, instance)
+		buf, digest, err := ProtoSerialise(obj, digestFunction)
+		if err != nil {
+			return err
+		}
+		err = rs.contentAddressableStorage.Put(ctx, digest, buf)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Convert the Asset to an ActionResult
-	actionResult, err := rs.assetToActionResult(ctx, data, instance)
+	actionResult, err := rs.assetToActionResult(ctx, data, digestFunction)
 	if err != nil {
 		return err
 	}
 
 	// Upload to the ActionCache
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(data.GetDigest().GetHash()))
-	if err != nil {
-		return err
-	}
-	bbActionDigest, err := digestFunction.NewDigestFromProto(actionDigest)
-	if err != nil {
-		return err
-	}
-	return rs.actionCache.Put(ctx, bbActionDigest, buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided))
-}
-
-func (rs *actionCacheAssetStore) uploadProtoToCAS(ctx context.Context, pb proto.Message, instance digest.InstanceName) error {
-	buf := buffer.NewProtoBufferFromProto(pb, buffer.UserProvided)
-	bbDigest, err := ProtoToDigest(pb, instance)
-	if err != nil {
-		return err
-	}
-	rs.contentAddressableStorage.Put(ctx, bbDigest, buf)
-	return nil
-}
-
-// Utility to push an arbitrary object and its digest into the CAS
-func (rs *actionCacheAssetStore) uploadToCAS(ctx context.Context, obj []byte, digest *remoteexecution.Digest, instance digest.InstanceName) error {
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(digest.GetHash()))
-	if err != nil {
-		return err
-	}
-	bbDigest, err := digestFunction.NewDigestFromProto(digest)
-	if err != nil {
-		return err
-	}
-	err = rs.contentAddressableStorage.Put(ctx, bbDigest, buffer.NewCASBufferFromByteSlice(bbDigest, obj, buffer.UserProvided))
-	return err
+	return rs.actionCache.Put(ctx, actionDigest, buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided))
 }
 
 // Utility method to convert a Directory Proto to a Tree Proto
-func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, directory *remoteexecution.Directory, instance digest.InstanceName) (*remoteexecution.Tree, error) {
+func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, directory *remoteexecution.Directory, digestFunction digest.Function) (*remoteexecution.Tree, error) {
 	children := []*remoteexecution.Directory{}
 	for _, node := range directory.Directories {
-		nodeChildren, err := rs.directoryNodeToDirectories(ctx, instance, node)
+		nodeChildren, err := rs.directoryNodeToDirectories(ctx, digestFunction, node)
 		if err != nil {
 			return nil, err
 		}
@@ -324,11 +295,7 @@ func (rs *actionCacheAssetStore) directoryToTree(ctx context.Context, directory 
 
 // Utility method to list all descendants of a DirectoryNode, used for converting
 // a Directory into a Tree
-func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context, instance digest.InstanceName, node *remoteexecution.DirectoryNode) ([]*remoteexecution.Directory, error) {
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(node.GetDigest().GetHash()))
-	if err != nil {
-		return nil, err
-	}
+func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context, digestFunction digest.Function, node *remoteexecution.DirectoryNode) ([]*remoteexecution.Directory, error) {
 	digest, err := digestFunction.NewDigestFromProto(node.Digest)
 	if err != nil {
 		return nil, err
@@ -339,7 +306,7 @@ func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context,
 	}
 	directories := []*remoteexecution.Directory{directory.(*remoteexecution.Directory)}
 	for _, node := range directory.(*remoteexecution.Directory).Directories {
-		children, err := rs.directoryNodeToDirectories(ctx, instance, node)
+		children, err := rs.directoryNodeToDirectories(ctx, digestFunction, node)
 		if err != nil {
 			return nil, err
 		}

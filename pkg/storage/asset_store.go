@@ -10,6 +10,6 @@ import (
 // AssetStore is a wrapper around a BlobAccess to inteface well with
 // AssetReference messages
 type AssetStore interface {
-	Get(ctx context.Context, ref *asset.AssetReference, instance digest.InstanceName) (*asset.Asset, error)
-	Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error
+	Get(ctx context.Context, ref *asset.AssetReference, digestFunction digest.Function) (*asset.Asset, error)
+	Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, digestFunction digest.Function) error
 }

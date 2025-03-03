@@ -9,7 +9,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,76 +34,52 @@ func NewRemoteExecutionFetcher(contentAddressableStorage blobstore.BlobAccess, c
 	}
 }
 
-func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteexecution.ActionResult, string, string, error) {
-	instanceName, err := digest.NewInstanceName(req.InstanceName)
-	if err != nil {
-		return nil, "", "", err
-	}
+// fetchCommon converts a FetchBlobRequest into an Action, runs the Action using
+// the Execution instance configured, then fetches the ActionResult obtained.
+// It returns the ActionResult, the URI that was fetched, the path to the output,
+// and an error value.
+func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteasset.FetchBlobRequest, digestFunction digest.Function) (*remoteexecution.ActionResult, string, string, error) {
+	// Get the Command Generator for the set of qualifiers in the request
 	commandGenerator, err := qualifier.QualifiersToCommand(req.Qualifiers)
 	if err != nil {
 		return nil, "", "", err
 	}
+
+	// Attempt to download each URI in turn
 	for _, uri := range req.Uris {
+		// Convert URI into an Action (and Command) based on the qualifiers set
 		command := commandGenerator(uri)
-		_, commandDigest, err := storage.ProtoSerialise(command)
+		commandPb, commandDigest, err := storage.ProtoSerialise(command, digestFunction)
 		if err != nil {
 			return nil, "", "", err
 		}
-		commandDigestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(commandDigest.GetHash()))
-		if err != nil {
-			return nil, "", "", err
-		}
-
 		action := &remoteexecution.Action{
-			CommandDigest:   commandDigest,
-			InputRootDigest: storage.EmptyDigest,
+			CommandDigest:   commandDigest.GetProto(),
+			InputRootDigest: storage.EmptyDigest(digestFunction).GetProto(),
 		}
-		_, actionDigest, err := storage.ProtoSerialise(action)
+		actionPb, actionDigest, err := storage.ProtoSerialise(action, digestFunction)
 		if err != nil {
 			return nil, "", "", err
 		}
 
-		actionPb, err := proto.Marshal(action)
+		// Upload Action and Command to the CAS
+		err = rf.contentAddressableStorage.Put(ctx, actionDigest, actionPb)
+		if err != nil {
+			return nil, "", "", err
+		}
+		err = rf.contentAddressableStorage.Put(ctx, commandDigest, commandPb)
 		if err != nil {
 			return nil, "", "", err
 		}
 
-		commandPb, err := proto.Marshal(command)
-		if err != nil {
-			return nil, "", "", err
-		}
-
-		actionDigestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(actionDigest.GetHash()))
-		if err != nil {
-			return nil, "", "", err
-		}
-
-		bbActionDigest, err := actionDigestFunction.NewDigestFromProto(actionDigest)
-		if err != nil {
-			return nil, "", "", err
-		}
-		err = rf.contentAddressableStorage.Put(ctx, bbActionDigest, buffer.NewCASBufferFromByteSlice(bbActionDigest, actionPb, buffer.UserProvided))
-		if err != nil {
-			return nil, "", "", err
-		}
-
-		bbCommandDigest, err := commandDigestFunction.NewDigestFromProto(commandDigest)
-		if err != nil {
-			return nil, "", "", err
-		}
-		err = rf.contentAddressableStorage.Put(ctx, bbCommandDigest, buffer.NewCASBufferFromByteSlice(bbCommandDigest, commandPb, buffer.UserProvided))
-		if err != nil {
-			return nil, "", "", err
-		}
-
+		// Execute the fetch using the Execution service
 		stream, err := rf.executionClient.Execute(ctx, &remoteexecution.ExecuteRequest{
 			InstanceName: req.InstanceName,
-			ActionDigest: actionDigest,
+			ActionDigest: actionDigest.GetProto(),
 		})
 		if err != nil {
 			return nil, "", "", err
 		}
-
 		response := &remoteexecution.ExecuteResponse{}
 		for {
 			operation, err := stream.Recv()
@@ -120,6 +95,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			}
 		}
 
+		// Check the result
 		actionResult := response.GetResult()
 		if exitCode := actionResult.GetExitCode(); exitCode != 0 {
 			log.Printf("Remote execution fetch was unsuccessful for URI: %v", uri)
@@ -127,21 +103,35 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 		}
 		return actionResult, uri, command.OutputPaths[0], nil
 	}
+
+	// No URI was successful
 	return nil, "", "", status.Errorf(codes.NotFound, "Unable to download blob from any of the provided URIs")
 }
 
 func (rf *remoteExecutionFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	actionResult, uri, outputPath, err := rf.fetchCommon(ctx, req)
+	// Get the Digest Function for this request
+	digestFunction, err := getDigestFunction(req.DigestFunction, req.InstanceName)
 	if err != nil {
 		return nil, err
 	}
-	digest := storage.EmptyDigest
+
+	// Execute all possible fetches using the Execution service
+	actionResult, uri, outputPath, err := rf.fetchCommon(ctx, req, digestFunction)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the digest corresponding to the output path we want
+	digest := storage.EmptyDigest(digestFunction).GetProto()
 	for _, file := range actionResult.GetOutputFiles() {
 		if file.Path == outputPath {
 			digest = file.GetDigest()
 		}
 	}
-	if digest == storage.EmptyDigest {
+
+	// If we got no match, check the directories obtained.  If the output path expected
+	// is a directory, give a nicer error to the user.
+	if digest == storage.EmptyDigest(digestFunction).GetProto() {
 		for _, directory := range actionResult.GetOutputDirectories() {
 			if directory.Path == outputPath {
 				fetchErr := status.New(codes.Aborted, "Expected blob but downloaded directory")
@@ -154,6 +144,7 @@ func (rf *remoteExecutionFetcher) FetchBlob(ctx context.Context, req *remoteasse
 		}
 		return nil, status.Errorf(codes.NotFound, "Unable to fetch blob from any of the URIs specified")
 	}
+
 	return &remoteasset.FetchBlobResponse{
 		Status:     status.New(codes.OK, "Blob fetched successfully!").Proto(),
 		Uri:        uri,
@@ -163,26 +154,35 @@ func (rf *remoteExecutionFetcher) FetchBlob(ctx context.Context, req *remoteasse
 }
 
 func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
+	// Get the Digest Function for this request
+	digestFunction, err := getDigestFunction(req.DigestFunction, req.InstanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute all possible fetches using the Execution service
+	// We convert to a Blob request first to use the shared fetchCommon
 	blobReq := &remoteasset.FetchBlobRequest{
 		InstanceName: req.InstanceName,
 		Uris:         req.Uris,
 		Qualifiers:   req.Qualifiers,
 	}
-	actionResult, uri, outputPath, err := rf.fetchCommon(ctx, blobReq)
+	actionResult, uri, outputPath, err := rf.fetchCommon(ctx, blobReq, digestFunction)
 	if err != nil {
 		return nil, err
 	}
-	instance, err := digest.NewInstanceName(req.InstanceName)
-	if err != nil {
-		return nil, err
-	}
-	digest := storage.EmptyDigest
+
+	// Find the digest corresponding to the output path we want
+	digest := storage.EmptyDigest(digestFunction).GetProto()
 	for _, directory := range actionResult.GetOutputDirectories() {
 		if directory.Path == outputPath {
 			digest = directory.GetTreeDigest()
 		}
 	}
-	if digest == storage.EmptyDigest {
+
+	// If we didn't find a directory for the output path, check the files.  If we hit
+	// the path as a file, present a nicer error for the user.
+	if digest == storage.EmptyDigest(digestFunction).GetProto() {
 		for _, file := range actionResult.GetOutputFiles() {
 			if file.Path == outputPath {
 				fetchErr := status.New(codes.Aborted, "Expected directory but downloaded file")
@@ -195,10 +195,10 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 		}
 		return nil, status.Errorf(codes.NotFound, "Unable to fetch directory from any of the URIs specified")
 	}
-	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_UNKNOWN, len(digest.GetHash()))
-	if err != nil {
-		return nil, err
-	}
+
+	// ActionResults point to Tree digests, but the Remote Asset API expects
+	// the Digest of the root Directory proto.  Download the Tree so we can
+	// find the corresponding Directory.
 	treeDigest, err := digestFunction.NewDigestFromProto(digest)
 	if err != nil {
 		return nil, err
@@ -208,37 +208,32 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 		return nil, err
 	}
 	root := tree.(*remoteexecution.Tree).Root
-	_, rootDigest, err := storage.ProtoSerialise(root)
+
+	// Ensure the tree's Directory protos are in the CAS
+	rootPb, rootDigest, err := storage.ProtoSerialise(root, digestFunction)
 	if err != nil {
 		return nil, err
 	}
-	bbRootDigest, err := digestFunction.NewDigestFromProto(rootDigest)
-	if err != nil {
-		return nil, err
-	}
-	err = rf.contentAddressableStorage.Put(ctx, bbRootDigest, buffer.NewProtoBufferFromProto(root, buffer.UserProvided))
+	err = rf.contentAddressableStorage.Put(ctx, rootDigest, rootPb)
 	if err != nil {
 		return nil, err
 	}
 	for _, child := range tree.(*remoteexecution.Tree).Children {
-		_, childDigest, err := storage.ProtoSerialise(child)
+		childPb, childDigest, err := storage.ProtoSerialise(child, digestFunction)
 		if err != nil {
 			return nil, err
 		}
-		bbChildDigest, err := digestFunction.NewDigestFromProto(childDigest)
-		if err != nil {
-			return nil, err
-		}
-		err = rf.contentAddressableStorage.Put(ctx, bbChildDigest, buffer.NewProtoBufferFromProto(child, buffer.UserProvided))
+		err = rf.contentAddressableStorage.Put(ctx, childDigest, childPb)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return &remoteasset.FetchDirectoryResponse{
 		Status:              status.New(codes.OK, "Directory fetched successfully!").Proto(),
 		Uri:                 uri,
 		Qualifiers:          req.Qualifiers,
-		RootDirectoryDigest: rootDigest,
+		RootDirectoryDigest: rootDigest.GetProto(),
 	}, nil
 }
 
