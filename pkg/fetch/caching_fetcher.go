@@ -9,8 +9,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
-	"github.com/buildbarn/bb-storage/pkg/util"
+	"github.com/buildbarn/bb-storage/pkg/digest"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
@@ -34,9 +33,9 @@ func NewCachingFetcher(fetcher Fetcher, assetStore storage.AssetStore) Fetcher {
 }
 
 func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
+	digestFunction, err := getDigestFunction(req.DigestFunction, req.InstanceName)
 	if err != nil {
-		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
+		return nil, err
 	}
 
 	var oldestContentAccepted time.Time = time.Unix(0, 0)
@@ -51,7 +50,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	// Check assetStore
 	for _, uri := range req.Uris {
-		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, req.Qualifiers, instanceName, oldestContentAccepted)
+		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, req.Qualifiers, digestFunction, oldestContentAccepted)
 		if err != nil {
 			allCachingErrors = append(allCachingErrors, err)
 			continue
@@ -85,14 +84,14 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 	// Cache fetched blob with single URI
 	assetRef := storage.NewAssetReference([]string{response.Uri}, response.Qualifiers)
 	assetData := storage.NewBlobAsset(response.BlobDigest, getDefaultTimestamp())
-	err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = cf.assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	if err != nil {
 		return response, err
 	}
 	if len(req.Uris) > 1 {
 		// Cache fetched blob with list of URIs
 		assetRef = storage.NewAssetReference(req.Uris, assetRef.Qualifiers)
-		err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
+		err = cf.assetStore.Put(ctx, assetRef, assetData, digestFunction)
 		if err != nil {
 			return response, err
 		}
@@ -106,11 +105,11 @@ func getAndCheckAsset(
 	assetStore storage.AssetStore,
 	uri string,
 	qualifiers []*remoteasset.Qualifier,
-	instanceName bb_digest.InstanceName,
+	digestFunction digest.Function,
 	oldestContentAccepted time.Time,
 ) (*asset.Asset, error) {
 	assetRef := storage.NewAssetReference([]string{uri}, qualifiers)
-	assetData, err := assetStore.Get(ctx, assetRef, instanceName)
+	assetData, err := assetStore.Get(ctx, assetRef, digestFunction)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +134,7 @@ func getAndCheckAsset(
 }
 
 func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
+	digestFunction, err := getDigestFunction(req.DigestFunction, req.InstanceName)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +148,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 	// Check refStore
 	for _, uri := range req.Uris {
-		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, req.Qualifiers, instanceName, oldestContentAccepted)
+		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, req.Qualifiers, digestFunction, oldestContentAccepted)
 		if err != nil {
 			allCachingErrors = append(allCachingErrors, err)
 			continue
@@ -180,14 +179,14 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	// Cache fetched blob with single URI
 	assetRef := storage.NewAssetReference([]string{response.Uri}, response.Qualifiers)
 	assetData := storage.NewDirectoryAsset(response.RootDirectoryDigest, getDefaultTimestamp())
-	err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = cf.assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	if err != nil {
 		return response, err
 	}
 	if len(req.Uris) > 1 {
 		// Cache fetched blob with list of URIs
 		assetRef = storage.NewAssetReference(req.Uris, assetRef.Qualifiers)
-		err = cf.assetStore.Put(ctx, assetRef, assetData, instanceName)
+		err = cf.assetStore.Put(ctx, assetRef, assetData, digestFunction)
 		if err != nil {
 			return response, err
 		}

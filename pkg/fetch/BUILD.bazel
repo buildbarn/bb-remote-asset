@@ -12,6 +12,7 @@ go_library(
         "logging_fetcher.go",
         "metrics_fetcher.go",
         "remote_execution_fetcher.go",
+        "utils.go",
         "validating_fetcher.go",
     ],
     importpath = "github.com/buildbarn/bb-remote-asset/pkg/fetch",

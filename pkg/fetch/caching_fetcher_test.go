@@ -28,6 +28,8 @@ func TestFetchBlobCaching(t *testing.T) {
 
 	instanceName, err := bb_digest.NewInstanceName("")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	uri := "www.example.com"
 	request := &remoteasset.FetchBlobRequest{
@@ -35,7 +37,7 @@ func TestFetchBlobCaching(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	blobDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
-	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
+	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
 	t.Logf("Ref digest was %v", refDigest)
@@ -86,6 +88,8 @@ func TestFetchDirectoryCaching(t *testing.T) {
 
 	instanceName, err := bb_digest.NewInstanceName("")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	uri := "www.example.com"
 	request := &remoteasset.FetchDirectoryRequest{
@@ -93,7 +97,7 @@ func TestFetchDirectoryCaching(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	dirDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
-	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
+	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -142,13 +146,15 @@ func TestCachingFetcherExpiry(t *testing.T) {
 
 	instanceName, err := digest.NewInstanceName("foo")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	uri := "https://example.com/example.tar.gz"
 	request := &remoteasset.FetchBlobRequest{
 		InstanceName: "foo",
 		Uris:         []string{uri},
 	}
-	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
+	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
@@ -181,6 +187,8 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 
 	instanceName, err := digest.NewInstanceName("bar")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	uri := "https://example.com/exampleblob.zip"
 	request := &remoteasset.FetchBlobRequest{
@@ -188,7 +196,7 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 		Uris:                  []string{uri},
 		OldestContentAccepted: timestamppb.Now(),
 	}
-	refDigest, err := storage.ProtoToDigest(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), instanceName)
+	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
 	backend := mock.NewMockBlobAccess(ctrl)
