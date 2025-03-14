@@ -24,8 +24,8 @@ func NewBlobAccessAssetStore(ba blobstore.BlobAccess, maximumMessageSizeBytes in
 }
 
 // Get a digest given a reference
-func (rs *blobAccessAssetStore) Get(ctx context.Context, ref *asset.AssetReference, instance digest.InstanceName) (*asset.Asset, error) {
-	refDigest, err := ProtoToDigest(ref, instance)
+func (rs *blobAccessAssetStore) Get(ctx context.Context, ref *asset.AssetReference, digestFunction digest.Function) (*asset.Asset, error) {
+	_, refDigest, err := ProtoSerialise(ref, digestFunction)
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +40,8 @@ func (rs *blobAccessAssetStore) Get(ctx context.Context, ref *asset.AssetReferen
 }
 
 // Put a digest into the store referenced by a given reference
-func (rs *blobAccessAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, instance digest.InstanceName) error {
-	refDigest, err := ProtoToDigest(ref, instance)
+func (rs *blobAccessAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, digestFunction digest.Function) error {
+	_, refDigest, err := ProtoSerialise(ref, digestFunction)
 	if err != nil {
 		return err
 	}

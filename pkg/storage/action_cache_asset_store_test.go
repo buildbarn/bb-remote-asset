@@ -35,6 +35,8 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName := digest.MustNewInstanceName("")
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{
 		Hash:      "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643",
@@ -90,7 +92,7 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 		})
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	err := assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
 }
 
@@ -98,6 +100,8 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("")
+	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
 	rootDirectoryDigest := &remoteexecution.Digest{
@@ -181,7 +185,7 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 		})
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
 }
 
@@ -189,6 +193,8 @@ func TestActionCacheAssetStorePutMalformedDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("")
+	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
 	rootDirectoryDigest := &remoteexecution.Digest{
@@ -225,7 +231,7 @@ func TestActionCacheAssetStorePutMalformedDirectory(t *testing.T) {
 
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NotNil(t, err)
 }
 
@@ -233,6 +239,8 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("")
+	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
 	sub1Digest := &remoteexecution.Digest{
@@ -280,9 +288,9 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		},
 	}
 
-	_, rootDirectoryDigest, err := storage.ProtoSerialise(tree.Root)
+	rootDirectoryPb, rootDirectoryDigest, err := storage.ProtoSerialise(tree.Root, digestFunction)
 	require.NoError(t, err)
-	_, treeDigest, err := storage.ProtoSerialise(tree)
+	_, treeDigest, err := storage.ProtoSerialise(tree, digestFunction)
 	require.NoError(t, err)
 
 	t.Logf("rootDirectoryDigest %v", rootDirectoryDigest)
@@ -292,7 +300,7 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 	assetRef := storage.NewAssetReference([]string{uri},
 		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
 	assetData := storage.NewAsset(
-		rootDirectoryDigest,
+		rootDirectoryDigest.GetProto(),
 		asset.Asset_DIRECTORY,
 		timestamppb.Now(),
 	)
@@ -301,11 +309,7 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 	cas := mock.NewMockBlobAccess(ctrl)
 	cas.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	cas.EXPECT().Get(ctx, bbDigest(rootDirectoryDigest)).Return(
-		buffer.NewProtoBufferFromProto(
-			tree.Root,
-			buffer.UserProvided,
-		))
+	cas.EXPECT().Get(ctx, rootDirectoryDigest).Return(rootDirectoryPb)
 	cas.EXPECT().Get(ctx, bbDigest(sub1Digest)).Return(
 		buffer.NewProtoBufferFromProto(
 			tree.Children[0],
@@ -324,8 +328,8 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 			a := m.(*remoteexecution.ActionResult)
 			for _, d := range a.OutputDirectories {
 				if d.Path == "out" {
-					require.True(t, proto.Equal(d.TreeDigest, treeDigest), "Got %v", d.TreeDigest)
-					require.True(t, proto.Equal(d.RootDirectoryDigest, rootDirectoryDigest), "Got %v", d.RootDirectoryDigest)
+					require.True(t, proto.Equal(d.TreeDigest, treeDigest.GetProto()), "Got %v", d.TreeDigest)
+					require.True(t, proto.Equal(d.RootDirectoryDigest, rootDirectoryDigest.GetProto()), "Got %v", d.RootDirectoryDigest)
 					return nil
 				}
 			}
@@ -334,7 +338,7 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
 }
 
@@ -342,6 +346,8 @@ func TestActionCacheAssetStorePutMalformedDirectoryAsBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("")
+	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{
@@ -381,7 +387,7 @@ func TestActionCacheAssetStorePutMalformedDirectoryAsBlob(t *testing.T) {
 		})
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
 }
 
@@ -389,6 +395,8 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName, err := digest.NewInstanceName("")
+	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
 	var actionDigest digest.Digest
@@ -417,7 +425,7 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 
 		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-		err = assetStore.Put(ctx, assetRef, assetData, instanceName)
+		err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 		require.NoError(t, err)
 	}
 	{
@@ -436,7 +444,7 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 
 		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-		asset, err := assetStore.Get(ctx, assetRef, instanceName)
+		asset, err := assetStore.Get(ctx, assetRef, digestFunction)
 		require.NoError(t, err)
 		require.Equal(t, asset.Digest, assetData.Digest)
 	}
@@ -492,6 +500,8 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName := digest.MustNewInstanceName("")
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{
 		Hash:      "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
@@ -525,7 +535,7 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	_, err := assetStore.Get(ctx, assetRef, instanceName)
+	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)
 }
 
@@ -533,6 +543,8 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
 	instanceName := digest.MustNewInstanceName("")
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri},
@@ -565,6 +577,6 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
 
-	_, err := assetStore.Get(ctx, assetRef, instanceName)
+	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)
 }

@@ -1,7 +1,6 @@
 package fetch
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
@@ -52,22 +51,17 @@ func NewHTTPFetcher(httpClient *http.Client,
 }
 
 func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	var err error
-	instanceName, err := bb_digest.NewInstanceName(req.InstanceName)
+	digestFunction, err := getDigestFunction(req.DigestFunction, req.InstanceName)
 	if err != nil {
-		return nil, util.StatusWrapf(err, "Invalid instance name %#v", req.InstanceName)
+		return nil, err
 	}
 
 	// TODO: Address the following fields
 	// timeout := ptypes.Duration(req.timeout)
 	// oldestContentAccepted := ptypes.Timestamp(req.oldestContentAccepted)
-	expectedDigest, digestFunctionEnum, err := getChecksumSri(req.Qualifiers)
+	expectedDigest, checksumFunction, err := getChecksumSri(req.Qualifiers)
 	if err != nil {
 		return nil, err
-	}
-	if digestFunctionEnum == remoteexecution.DigestFunction_UNKNOWN {
-		// Default to SHA256 if no digest is provided.
-		digestFunctionEnum = remoteexecution.DigestFunction_SHA256
 	}
 
 	auth, err := getAuthHeaders(req.Uris, req.Qualifiers)
@@ -76,10 +70,17 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	for _, uri := range req.Uris {
-		buffer, digest := hf.downloadBlob(ctx, uri, instanceName, expectedDigest, digestFunctionEnum, auth)
+		buffer, digest := hf.downloadBlob(ctx, uri, digestFunction, auth)
 		if _, err = buffer.GetSizeBytes(); err != nil {
 			log.Printf("Error downloading blob with URI %s: %v", uri, err)
 			continue
+		}
+
+		// Check the checksum.sri qualifier, if there's an expected Digest
+		if expectedDigest != "" {
+			if ok, err := validateChecksumSri(buffer, checksumFunction, expectedDigest); !ok {
+				return nil, err
+			}
 		}
 
 		if err = hf.contentAddressableStorage.Put(ctx, digest, buffer); err != nil {
@@ -111,16 +112,41 @@ func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Difference(qualifiers, toRemove)
 }
 
-func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceName bb_digest.InstanceName, expectedDigest string, digestFunctionEnum remoteexecution.DigestFunction_Value, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
+// validateChecksumSri ensures that the checksum of the passed response matches the expected value.
+func validateChecksumSri(buf buffer.Buffer, checksumFunction bb_digest.Function, expectedDigest string) (bool, error) {
+	sizeBytes, err := buf.GetSizeBytes()
+	if err != nil {
+		return false, err
+	}
+	checksumGenerator := checksumFunction.NewGenerator(sizeBytes)
+	written, err := io.Copy(checksumGenerator, buf.ToReader())
+	if err != nil {
+		return false, err
+	}
+	if written != sizeBytes {
+		return false, status.Errorf(codes.Internal, "Failed to hash entire buffer")
+	}
+
+	checksum := checksumGenerator.Sum().GetProto().GetHash()
+	if checksum != expectedDigest {
+		return false, status.Errorf(codes.Internal, "Fetched content did not match checksum.sri qualifier: Expected %s, Got %s", expectedDigest, checksum)
+	}
+
+	return true, nil
+}
+
+// downloadBlob performs the actual blob download, yielding a buffer of the content and its Digest
+func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunction bb_digest.Function, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
+	// Generate the HTTP Request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest
 	}
-
 	if auth != nil {
 		auth.ApplyHeaders(uri, req)
 	}
 
+	// Perform the request, check for status
 	resp, err := hf.httpClient.Do(req)
 	if err != nil {
 		log.Printf("Error downloading blob with URI %s: %v", uri, err)
@@ -131,57 +157,24 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, instanceNam
 		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest
 	}
 
-	digestFunction, err := instanceName.GetDigestFunction(digestFunctionEnum, len(expectedDigest))
+	// Compute the Digest
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapfWithCode(err, codes.Internal, "Failed to get digest function for instance: %v", instanceName)), bb_digest.BadDigest
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest
 	}
-
-	// Work out the digest of the downloaded data
-	//
-	// If the HTTP response includes the content length (indicated by the value
-	// of the field being >= 0) and the client has provided an expected hash of
-	// the content, we can avoid holding the contents of the entire file in
-	// memory at one time by creating a new buffer from the response body
-	// directly
-	//
-	// If either one (or both) of these things is not available, we will need to
-	// read the enitre response body into a byte slice in order to be able to
-	// determine the digest
-	length := resp.ContentLength
-	body := resp.Body
-	if length < 0 || expectedDigest == "" {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest
-		}
-		err = resp.Body.Close()
-		if err != nil {
-			return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")), bb_digest.BadDigest
-		}
-		length = int64(len(bodyBytes))
-
-		// If we don't know what the hash should be we will need to work out the
-		// actual hash of the content
-		if expectedDigest == "" {
-			hasher := digestFunction.NewGenerator(length)
-			hasher.Write(bodyBytes)
-			digest := hasher.Sum()
-			expectedDigest = digest.GetHashString()
-		}
-
-		body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	}
-	digest, err := digestFunction.NewDigest(expectedDigest, length)
+	err = resp.Body.Close()
 	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Digest Creation failed")), bb_digest.BadDigest
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")), bb_digest.BadDigest
 	}
+	hasher := digestFunction.NewGenerator(resp.ContentLength)
+	hasher.Write(bodyBytes)
+	digest := hasher.Sum()
 
-	// An error will be generated down the line if the data does not match the
-	// digest
-	return buffer.NewCASBufferFromReader(digest, body, buffer.UserProvided), digest
+	return buffer.NewCASBufferFromByteSlice(digest, bodyBytes, buffer.UserProvided), digest
 }
 
-func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, remoteexecution.DigestFunction_Value, error) {
+// getChecksumSri parses the checksum.sri qualifier into an expected digest and a digest function to use
+func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, bb_digest.Function, error) {
 	hashTypes := map[string]remoteexecution.DigestFunction_Value{
 		"sha256":     remoteexecution.DigestFunction_SHA256,
 		"sha1":       remoteexecution.DigestFunction_SHA1,
@@ -195,27 +188,40 @@ func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, remoteexecutio
 	for _, qualifier := range qualifiers {
 		if qualifier.Name == "checksum.sri" {
 			if digestFunctionEnum != remoteexecution.DigestFunction_UNKNOWN {
-				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Multiple checksum.sri provided")
+				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Multiple checksum.sri provided")
 			}
 			parts := strings.SplitN(qualifier.Value, "-", 2)
 			if len(parts) != 2 {
-				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Bad checksum.sri hash expression: %s", qualifier.Value)
+				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Bad checksum.sri hash expression: %s", qualifier.Value)
 			}
 			hashName := parts[0]
 			b64hash := parts[1]
-			var ok bool
-			digestFunctionEnum, ok = hashTypes[hashName]
+
+			digestFunctionEnum, ok := hashTypes[hashName]
 			if !ok {
-				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Unsupported checksum algorithm %s", hashName)
+				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Unsupported checksum algorithm %s", hashName)
 			}
+
+			// Convert expected digest to hex
 			decoded, err := base64.StdEncoding.DecodeString(b64hash)
 			if err != nil {
-				return "", remoteexecution.DigestFunction_UNKNOWN, status.Errorf(codes.InvalidArgument, "Failed to decode checksum as base64 encoded %s sum: %s", hashName, err.Error())
+				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Failed to decode checksum as base64 encoded %s sum: %s", hashName, err.Error())
 			}
 			expectedDigest = hex.EncodeToString(decoded)
+
+			// Convert to a proper digest function.
+			// Note: The Instance name doesn't matter here, this function is used only
+			// to give us a convenient API when actually checking the checksum.
+			instance := bb_digest.MustNewInstanceName("")
+			checksumFunction, err := instance.GetDigestFunction(digestFunctionEnum, len(expectedDigest))
+			if err != nil {
+				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Failed to get checksum function for checksum.sri: %s", err.Error())
+			}
+			return expectedDigest, checksumFunction, nil
 		}
 	}
-	return expectedDigest, digestFunctionEnum, nil
+
+	return "", bb_digest.Function{}, nil
 }
 
 func getAuthHeaders(uris []string, qualifiers []*remoteasset.Qualifier) (*AuthHeaders, error) {

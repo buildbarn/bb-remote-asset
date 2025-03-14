@@ -1,7 +1,9 @@
 package fetch_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +12,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
-	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/testutil"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
@@ -50,12 +52,32 @@ func (hm *headerMatcher) Matches(x interface{}) bool {
 	return true
 }
 
+// Instance name used in the test
+const InstanceName = ""
+
+// Data used as the blob
+const TestData = "Hello"
+
+// Convert DigestFunction Enum to strings
+var HashNames = map[remoteexecution.DigestFunction_Value]string{
+	remoteexecution.DigestFunction_SHA256:     "sha256",
+	remoteexecution.DigestFunction_SHA1:       "sha1",
+	remoteexecution.DigestFunction_MD5:        "md5",
+	remoteexecution.DigestFunction_SHA384:     "sha384",
+	remoteexecution.DigestFunction_SHA512:     "sha512",
+	remoteexecution.DigestFunction_SHA256TREE: "sha256tree",
+}
+
+// Convert a Digest to the representation used by checksum.sri qualifiers.  Note,
+// df must match the value used by d
+func digestToChecksumSri(df remoteexecution.DigestFunction_Value, d digest.Digest) string {
+	return fmt.Sprintf("%s-%s", HashNames[df], base64.StdEncoding.EncodeToString(d.GetHashBytes()))
+}
+
 func TestHTTPFetcherFetchBlobSuccessSHA256(t *testing.T) {
 	testHTTPFetcherFetchBlobSuccessWithHasher(
 		t,
 		remoteexecution.DigestFunction_SHA256,
-		"185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969",
-		"sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
 	)
 }
 
@@ -63,8 +85,6 @@ func TestHTTPFetcherFetchBlobSuccessSHA1(t *testing.T) {
 	testHTTPFetcherFetchBlobSuccessWithHasher(
 		t,
 		remoteexecution.DigestFunction_SHA1,
-		"f7ff9e8b7bb2e09b70935a5d785e0cc5d9d0abf0",
-		"sha1-9/+ei3uy4Jtwk1pdeF4MxdnQq/A=",
 	)
 }
 
@@ -72,8 +92,6 @@ func TestHTTPFetcherFetchBlobSuccessMD5(t *testing.T) {
 	testHTTPFetcherFetchBlobSuccessWithHasher(
 		t,
 		remoteexecution.DigestFunction_MD5,
-		"8b1a9953c4611296a827abf8c47804d7",
-		"md5-ixqZU8RhEpaoJ6v4xHgE1w==",
 	)
 }
 
@@ -81,8 +99,6 @@ func TestHTTPFetcherFetchBlobSuccessSHA384(t *testing.T) {
 	testHTTPFetcherFetchBlobSuccessWithHasher(
 		t,
 		remoteexecution.DigestFunction_SHA384,
-		"3519fe5ad2c596efe3e276a6f351b8fc0b03db861782490d45f7598ebd0ab5fd5520ed102f38c4a5ec834e98668035fc",
-		"sha384-NRn+WtLFlu/j4nam81G4/AsD24YXgkkNRfdZjr0Ktf1VIO0QLzjEpeyDTphmgDX8",
 	)
 }
 
@@ -90,8 +106,6 @@ func TestHTTPFetcherFetchBlobSuccessSHA512(t *testing.T) {
 	testHTTPFetcherFetchBlobSuccessWithHasher(
 		t,
 		remoteexecution.DigestFunction_SHA512,
-		"3615f80c9d293ed7402687f94b22d58e529b8cc7916f8fac7fddf7fbd5af4cf777d3d795a7a00a16bf7e7f3fb9561ee9baae480da9fe7a18769e71886b03f315",
-		"sha512-NhX4DJ0pPtdAJof5SyLVjlKbjMeRb4+sf933+9WvTPd309eVp6AKFr9+fz+5Vh7puq5IDan+ehh2nnGIawPzFQ==",
 	)
 }
 
@@ -99,36 +113,36 @@ func TestHTTPFetcherFetchBlobSuccessSha256tree(t *testing.T) {
 	testHTTPFetcherFetchBlobSuccessWithHasher(
 		t,
 		remoteexecution.DigestFunction_SHA256TREE,
-		"35b974ff55d4c41ca000ea35b974ff55d4c41ca000eacf29125544cf29125544",
-		"sha256tree-Nbl0/1XUxBygAOo1uXT/VdTEHKAA6s8pElVEzykSVUQ=",
 	)
 }
 
-func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum remoteexecution.DigestFunction_Value, hexHash, sriChecksum string) {
+func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum remoteexecution.DigestFunction_Value) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
+	instance := digest.MustNewInstanceName(InstanceName)
+	digestFunction, err := instance.GetDigestFunction(digestFunctionEnum, 0)
+	require.NoError(t, err)
+	digestGenerator := digestFunction.NewGenerator(int64(len(TestData)))
+	digestGenerator.Write([]byte(TestData))
+	helloDigest := digestGenerator.Sum()
+
 	request := &remoteasset.FetchBlobRequest{
-		InstanceName: "",
+		InstanceName: InstanceName,
 		Uris:         []string{"www.example.com"},
 		Qualifiers: []*remoteasset.Qualifier{
 			{
 				Name:  "checksum.sri",
-				Value: sriChecksum,
+				Value: digestToChecksumSri(digestFunctionEnum, helloDigest),
 			},
 		},
+		DigestFunction: digestFunctionEnum,
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
 	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
-	body := mock.NewMockReadCloser(ctrl)
-	helloDigest := bb_digest.MustNewDigest(
-		"",
-		digestFunctionEnum,
-		hexHash,
-		5,
-	)
 
 	t.Run("Success"+helloDigest.GetDigestFunction().GetEnumValue().String(), func(t *testing.T) {
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:        "200 Success",
 			StatusCode:    200,
@@ -144,18 +158,14 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 	})
 
 	t.Run("SuccessNoContentLength", func(t *testing.T) {
-		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
+		roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:        "200 Success",
 			StatusCode:    200,
 			Body:          body,
 			ContentLength: -1,
 		}, nil)
-		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
-			copy(p, "Hello")
-			return 5, io.EOF
-		}).After(httpDoCall)
-		bodyCloseCall := body.EXPECT().Close().Return(nil).After(bodyReadCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyCloseCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -167,31 +177,32 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 func TestHTTPFetcherFetchBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
+	instance := digest.MustNewInstanceName(InstanceName)
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
+	digestGenerator := digestFunction.NewGenerator(int64(len(TestData)))
+	digestGenerator.Write([]byte(TestData))
+	helloDigest := digestGenerator.Sum()
+
 	uri := "www.example.com"
 	request := &remoteasset.FetchBlobRequest{
-		InstanceName: "",
+		InstanceName: InstanceName,
 		Uris:         []string{uri, "www.another.com"},
 		Qualifiers: []*remoteasset.Qualifier{
 			{
 				Name:  "checksum.sri",
-				Value: "sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
+				Value: digestToChecksumSri(remoteexecution.DigestFunction_SHA256, helloDigest),
 			},
 		},
 	}
 	casBlobAccess := mock.NewMockBlobAccess(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
 	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
-	body := mock.NewMockReadCloser(ctrl)
-	helloDigest := bb_digest.MustNewDigest(
-		"",
-		remoteexecution.DigestFunction_SHA256,
-		"185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969",
-		5,
-	)
 
 	t.Run("SuccessNoExpectedDigest", func(t *testing.T) {
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		request := &remoteasset.FetchBlobRequest{
-			InstanceName: "",
+			InstanceName: InstanceName,
 			Uris:         []string{uri, "www.another.com"},
 			Qualifiers:   []*remoteasset.Qualifier{},
 		}
@@ -201,12 +212,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
-			copy(p, "Hello")
-			return 5, io.EOF
-		}).After(httpDoCall)
-		bodyCloseCall := body.EXPECT().Close().Return(nil).After(bodyReadCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyCloseCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -215,8 +221,9 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	})
 
 	t.Run("SuccessNoExpectedDigestOrContentLength", func(t *testing.T) {
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		request := &remoteasset.FetchBlobRequest{
-			InstanceName: "",
+			InstanceName: InstanceName,
 			Uris:         []string{uri, "www.another.com"},
 			Qualifiers:   []*remoteasset.Qualifier{},
 		}
@@ -226,12 +233,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: -1,
 		}, nil)
-		bodyReadCall := body.EXPECT().Read(gomock.Any()).DoAndReturn(func(p []byte) (int, error) {
-			copy(p, "Hello")
-			return 5, io.EOF
-		}).After(httpDoCall)
-		bodyCloseCall := body.EXPECT().Close().Return(nil).After(bodyReadCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(bodyCloseCall)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -241,7 +243,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 
 	t.Run("UnknownChecksumSriAlgo", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
-			InstanceName: "",
+			InstanceName: InstanceName,
 			Uris:         []string{uri, "www.another.com"},
 			Qualifiers: []*remoteasset.Qualifier{
 				{
@@ -258,7 +260,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 
 	t.Run("BadChecksumSriAlgo", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
-			InstanceName: "",
+			InstanceName: InstanceName,
 			Uris:         []string{uri, "www.another.com"},
 			Qualifiers: []*remoteasset.Qualifier{
 				{
@@ -275,7 +277,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 
 	t.Run("BadChecksumSriBase64Value", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
-			InstanceName: "",
+			InstanceName: InstanceName,
 			Uris:         []string{uri, "www.another.com"},
 			Qualifiers: []*remoteasset.Qualifier{
 				{
@@ -295,6 +297,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Status:     "404 Not Found",
 			StatusCode: 404,
 		}, nil)
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		httpSuccessCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:        "200 Success",
 			StatusCode:    200,
@@ -322,7 +325,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 
 	t.Run("WithLegacyAuthHeaders", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
-			InstanceName: "",
+			InstanceName: InstanceName,
 			Uris:         []string{uri},
 			Qualifiers: []*remoteasset.Qualifier{
 				{
@@ -331,7 +334,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				},
 				{
 					Name:  "checksum.sri",
-					Value: "sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
+					Value: digestToChecksumSri(remoteexecution.DigestFunction_SHA256, helloDigest),
 				},
 			},
 		}
@@ -341,6 +344,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				"Authorization": "Bearer letmein",
 			},
 		}
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		httpDoCall := roundTripper.EXPECT().RoundTrip(matcher).Return(&http.Response{
 			Status:        "200 Success",
 			StatusCode:    200,
@@ -374,7 +378,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				},
 				{
 					Name:  "checksum.sri",
-					Value: "sha256-GF+NsyJx/iX1Yab8k4suJkMG7DBO2lGAB9F2SCY4GWk=",
+					Value: digestToChecksumSri(remoteexecution.DigestFunction_SHA256, helloDigest),
 				},
 			},
 		}
@@ -395,6 +399,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Status:     "404 NotFound",
 			StatusCode: 404,
 		}, nil)
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		httpDoCall2 := roundTripper.EXPECT().RoundTrip(matcherReq2).Return(&http.Response{
 			Status:        "200 Success",
 			StatusCode:    200,

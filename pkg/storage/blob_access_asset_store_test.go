@@ -22,12 +22,14 @@ func TestBlobAccessAssetStorePut(t *testing.T) {
 
 	instanceName, err := digest.NewInstanceName("")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{Hash: "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643", SizeBytes: 111}
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
 	assetData := storage.NewBlobAsset(blobDigest, timestamppb.Now())
-	refDigest, err := storage.ProtoToDigest(assetRef, instanceName)
+	_, refDigest, err := storage.ProtoSerialise(assetRef, digestFunction)
 	require.NoError(t, err)
 
 	blobAccess := mock.NewMockBlobAccess(ctrl)
@@ -41,7 +43,7 @@ func TestBlobAccessAssetStorePut(t *testing.T) {
 		})
 	assetStore := storage.NewBlobAccessAssetStore(blobAccess, 16*1024*1024)
 
-	err = assetStore.Put(ctx, assetRef, assetData, instanceName)
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
 }
 
@@ -50,11 +52,13 @@ func TestBlobAccessAssetStoreGet(t *testing.T) {
 
 	instanceName, err := digest.NewInstanceName("foo")
 	require.NoError(t, err)
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
 
 	blobDigest := &remoteexecution.Digest{Hash: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f", SizeBytes: 222}
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
-	refDigest, err := storage.ProtoToDigest(assetRef, instanceName)
+	_, refDigest, err := storage.ProtoSerialise(assetRef, digestFunction)
 	require.NoError(t, err)
 
 	buf := buffer.NewProtoBufferFromProto(&asset.Asset{Digest: blobDigest}, buffer.UserProvided)
@@ -63,6 +67,6 @@ func TestBlobAccessAssetStoreGet(t *testing.T) {
 	backend.EXPECT().Get(ctx, refDigest).Return(buf)
 	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 
-	_, err = assetStore.Get(ctx, assetRef, instanceName)
+	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)
 }
