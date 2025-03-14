@@ -10,7 +10,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	"github.com/buildbarn/bb-storage/pkg/auth"
+	auth_configuration "github.com/buildbarn/bb-storage/pkg/auth/configuration"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
@@ -48,12 +48,12 @@ func main() {
 			return util.StatusWrap(err, "Failed to apply global configuration options")
 		}
 
-		fetchAuthorizer, err := auth.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.FetchAuthorizer)
+		fetchAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.FetchAuthorizer, grpcClientFactory)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to create Fetch Authorizer from Configuration")
 		}
 
-		pushAuthorizer, err := auth.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.PushAuthorizer)
+		pushAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.PushAuthorizer, grpcClientFactory)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to create Push Authorizer from Configuration")
 		}
@@ -129,6 +129,7 @@ func main() {
 				remoteasset.RegisterPushServer(s, metricsPushServer)
 			},
 			siblingsGroup,
+			grpcClientFactory,
 		); err != nil {
 			return util.StatusWrap(err, "gRPC server failure")
 		}
