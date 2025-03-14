@@ -131,7 +131,7 @@ func (rf *remoteExecutionFetcher) FetchBlob(ctx context.Context, req *remoteasse
 
 	// If we got no match, check the directories obtained.  If the output path expected
 	// is a directory, give a nicer error to the user.
-	if digest == storage.EmptyDigest(digestFunction).GetProto() {
+	if digest.GetSizeBytes() == 0 {
 		for _, directory := range actionResult.GetOutputDirectories() {
 			if directory.Path == outputPath {
 				fetchErr := status.New(codes.Aborted, "Expected blob but downloaded directory")
@@ -182,7 +182,7 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 
 	// If we didn't find a directory for the output path, check the files.  If we hit
 	// the path as a file, present a nicer error for the user.
-	if digest == storage.EmptyDigest(digestFunction).GetProto() {
+	if digest.GetSizeBytes() == 0 {
 		for _, file := range actionResult.GetOutputFiles() {
 			if file.Path == outputPath {
 				fetchErr := status.New(codes.Aborted, "Expected directory but downloaded file")
