@@ -212,7 +212,7 @@ func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, bb_digest.Func
 			// Convert to a proper digest function.
 			// Note: The Instance name doesn't matter here, this function is used only
 			// to give us a convenient API when actually checking the checksum.
-			instance := bb_digest.MustNewInstanceName("")
+			instance := util.Must(bb_digest.NewInstanceName(""))
 			checksumFunction, err := instance.GetDigestFunction(digestFunctionEnum, len(expectedDigest))
 			if err != nil {
 				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Failed to get checksum function for checksum.sri: %s", err.Error())

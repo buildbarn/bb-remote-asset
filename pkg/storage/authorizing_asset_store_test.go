@@ -9,6 +9,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -19,7 +20,7 @@ import (
 func TestAuthorizingBlobAccessGet(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName := bb_digest.MustNewInstanceName("rohan")
+	instanceName := util.Must(bb_digest.NewInstanceName("rohan"))
 	instanceSlice := []bb_digest.InstanceName{instanceName}
 	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
@@ -54,7 +55,7 @@ func TestAuthorizingBlobAccessGet(t *testing.T) {
 func TestAuthorizingBlobAccessPut(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName := bb_digest.MustNewInstanceName("rohan")
+	instanceName := util.Must(bb_digest.NewInstanceName("rohan"))
 	instanceSlice := []bb_digest.InstanceName{instanceName}
 	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)

@@ -13,6 +13,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -34,7 +35,7 @@ func bbDigest(d *remoteexecution.Digest) digest.Digest {
 func TestActionCacheAssetStorePutBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName := digest.MustNewInstanceName("")
+	instanceName := util.Must(digest.NewInstanceName(""))
 	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
@@ -499,7 +500,7 @@ func TestActionCacheAssetStoreRoundTripWithSpecialQualifiers(t *testing.T) {
 func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName := digest.MustNewInstanceName("")
+	instanceName := util.Must(digest.NewInstanceName(""))
 	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
@@ -542,7 +543,7 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instanceName := digest.MustNewInstanceName("")
+	instanceName := util.Must(digest.NewInstanceName(""))
 	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 
