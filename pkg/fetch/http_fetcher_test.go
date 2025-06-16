@@ -14,6 +14,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/testutil"
+	"github.com/buildbarn/bb-storage/pkg/util"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -119,7 +120,7 @@ func TestHTTPFetcherFetchBlobSuccessSha256tree(t *testing.T) {
 func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum remoteexecution.DigestFunction_Value) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instance := digest.MustNewInstanceName(InstanceName)
+	instance := util.Must(digest.NewInstanceName(InstanceName))
 	digestFunction, err := instance.GetDigestFunction(digestFunctionEnum, 0)
 	require.NoError(t, err)
 	digestGenerator := digestFunction.NewGenerator(int64(len(TestData)))
@@ -177,7 +178,7 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 func TestHTTPFetcherFetchBlob(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
-	instance := digest.MustNewInstanceName(InstanceName)
+	instance := util.Must(digest.NewInstanceName(InstanceName))
 	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
 	require.NoError(t, err)
 	digestGenerator := digestFunction.NewGenerator(int64(len(TestData)))

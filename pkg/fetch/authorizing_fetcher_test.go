@@ -9,6 +9,7 @@ import (
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -22,7 +23,7 @@ func TestFetchBlobAuthorization(t *testing.T) {
 	authorizer := mock.NewMockAuthorizer(ctrl)
 	af := fetch.NewAuthorizingFetcher(baseFetcher, authorizer)
 
-	instanceName := bb_digest.MustNewInstanceName("gondor")
+	instanceName := util.Must(bb_digest.NewInstanceName("gondor"))
 	instanceSlice := []bb_digest.InstanceName{instanceName}
 
 	uri := "source.test"
@@ -66,7 +67,7 @@ func TestFetchDirectoryAuthorization(t *testing.T) {
 	authorizer := mock.NewMockAuthorizer(ctrl)
 	af := fetch.NewAuthorizingFetcher(baseFetcher, authorizer)
 
-	instanceName := bb_digest.MustNewInstanceName("gondor")
+	instanceName := util.Must(bb_digest.NewInstanceName("gondor"))
 	instanceSlice := []bb_digest.InstanceName{instanceName}
 
 	uri := "source.test"
