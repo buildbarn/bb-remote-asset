@@ -264,8 +264,8 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 		EXPECT().
 		Get(ctx, gomock.Any()).
 		Do(func(_ context.Context, d bb_digest.Digest) {
-                firstDigest = d
-        }).
+			firstDigest = d
+		}).
 		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
 	mockFetcher.
 		EXPECT().
@@ -284,7 +284,6 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 			require.Equal(t, firstDigest, d)
 			return nil
 		})
-
 
 	_, err := cachingFetcher.FetchBlob(ctx, req1)
 	require.NoError(t, err)
@@ -329,7 +328,6 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 	require.NoError(t, err)
 }
 
-
 func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 
@@ -344,7 +342,6 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 			{Name: "bazel.auth_headers", Value: "token‑A"},
 		},
 	}
-
 
 	// 2nd request differs only in auth headers.
 	req2 := proto.Clone(req1).(*remoteasset.FetchDirectoryRequest)
@@ -371,8 +368,8 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 		EXPECT().
 		Get(ctx, gomock.Any()).
 		Do(func(_ context.Context, d bb_digest.Digest) {
-                firstDigest = d
-        }).
+			firstDigest = d
+		}).
 		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
 	mockFetcher.
 		EXPECT().
@@ -382,7 +379,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 			Status:              status.New(codes.OK, "fetched").Proto(),
 			Uri:                 uri,
 			RootDirectoryDigest: dirDigest,
-			Qualifiers: req1.Qualifiers,
+			Qualifiers:          req1.Qualifiers,
 		}, nil)
 	backend.
 		EXPECT().
@@ -391,7 +388,6 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 			require.Equal(t, firstDigest, d)
 			return nil
 		})
-
 
 	_, err := cachingFetcher.FetchDirectory(ctx, req1)
 	require.NoError(t, err)
@@ -423,7 +419,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 			Status:              status.New(codes.OK, "fetched").Proto(),
 			Uri:                 uri,
 			RootDirectoryDigest: dirDigest,
-			Qualifiers: req3.Qualifiers,
+			Qualifiers:          req3.Qualifiers,
 		}, nil)
 	backend.
 		EXPECT().
