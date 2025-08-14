@@ -11,6 +11,7 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 	bb_http "github.com/buildbarn/bb-storage/pkg/http"
+	"github.com/buildbarn/bb-storage/pkg/program"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,6 +23,7 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
 	contentAddressableStorage blobstore.BlobAccess,
 	grpcClientFactory grpc.ClientFactory,
+	dependenciesGroup program.Group,
 	maximumMessageSizeBytes int,
 	authorizer auth.Authorizer,
 ) (fetch.Fetcher, error) {
@@ -41,7 +43,10 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		case *pb.FetcherConfiguration_Error:
 			fetcher = fetch.NewErrorFetcher(backend.Error)
 		case *pb.FetcherConfiguration_RemoteExecution:
-			client, err := grpcClientFactory.NewClientFromConfiguration(backend.RemoteExecution.ExecutionClient)
+			client, err := grpcClientFactory.NewClientFromConfiguration(
+				backend.RemoteExecution.ExecutionClient,
+				dependenciesGroup,
+			)
 			if err != nil {
 				return nil, err
 			}
