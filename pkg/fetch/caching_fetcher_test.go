@@ -223,3 +223,211 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 	require.Contains(t, errAsStatus.Message(), "Asset older than")
 	require.Equal(t, errAsStatus.Code(), codes.NotFound)
 }
+
+func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
+	ctrl, ctx := gomock.WithContext(context.Background(), t)
+
+	uri := "https://example.com/blob.tar.gz"
+
+	req1 := &remoteasset.FetchBlobRequest{
+		InstanceName: "",
+		Uris:         []string{uri},
+		Qualifiers: []*remoteasset.Qualifier{
+			{Name: "checksum.sri", Value: "sha256-aaa"},
+			{Name: "http_header_url:0:Authorization", Value: "Bearer first"},
+			{Name: "bazel.auth_headers", Value: "token‑one"},
+		},
+	}
+
+	// 2nd request differs only in auth headers.
+	req2 := proto.Clone(req1).(*remoteasset.FetchBlobRequest)
+	req2.Qualifiers[1].Value = "Bearer second"
+	req2.Qualifiers[2].Value = "token‑two"
+
+	// 3rd request differs in non-auth headers and should be a cache miss from the first.
+	req3 := proto.Clone(req1).(*remoteasset.FetchBlobRequest)
+	req3.Qualifiers[0].Value = "Windows"
+
+	blobDigest := &remoteexecution.Digest{
+		Hash:      "1111111111111111111111111111111111111111111111111111111111111111",
+		SizeBytes: 42,
+	}
+
+	backend := mock.NewMockBlobAccess(ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	mockFetcher := mock.NewMockFetcher(ctrl)
+	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
+
+	// 1st fetch is a cache miss, and we'll record the digest used.
+	var firstDigest bb_digest.Digest
+	getMiss := backend.
+		EXPECT().
+		Get(ctx, gomock.Any()).
+		Do(func(_ context.Context, d bb_digest.Digest) {
+			firstDigest = d
+		}).
+		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+	mockFetcher.
+		EXPECT().
+		FetchBlob(ctx, req1).
+		After(getMiss).
+		Return(&remoteasset.FetchBlobResponse{
+			Status:     status.New(codes.OK, "fetched").Proto(),
+			Uri:        uri,
+			BlobDigest: blobDigest,
+			Qualifiers: req1.Qualifiers,
+		}, nil)
+	backend.
+		EXPECT().
+		Put(ctx, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+			require.Equal(t, firstDigest, d)
+			return nil
+		})
+
+	_, err := cachingFetcher.FetchBlob(ctx, req1)
+	require.NoError(t, err)
+
+	// 2nd fetch should be a cache hit, despite the auth qualifiers being different.
+	backend.
+		EXPECT().
+		Get(ctx, firstDigest).
+		Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(blobDigest, nil), buffer.UserProvided))
+
+	_, err = cachingFetcher.FetchBlob(ctx, req2)
+	require.NoError(t, err)
+
+	// 3rd fetch should be a cache miss since non-auth qualifiers differ.
+	var thirdDigest bb_digest.Digest
+	getMiss = backend.
+		EXPECT().
+		Get(ctx, gomock.Any()).
+		Do(func(_ context.Context, d bb_digest.Digest) {
+			require.NotEqual(t, firstDigest, d)
+			thirdDigest = d
+		}).
+		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+	mockFetcher.
+		EXPECT().
+		FetchBlob(ctx, req3).
+		After(getMiss).
+		Return(&remoteasset.FetchBlobResponse{
+			Status:     status.New(codes.OK, "fetched").Proto(),
+			Uri:        uri,
+			BlobDigest: blobDigest,
+			Qualifiers: req3.Qualifiers,
+		}, nil)
+	backend.
+		EXPECT().
+		Put(ctx, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+			require.Equal(t, thirdDigest, d)
+			return nil
+		})
+	_, err = cachingFetcher.FetchBlob(ctx, req3)
+	require.NoError(t, err)
+}
+
+func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
+	ctrl, ctx := gomock.WithContext(context.Background(), t)
+
+	uri := "https://example.com/dir.zip"
+
+	req1 := &remoteasset.FetchDirectoryRequest{
+		InstanceName: "",
+		Uris:         []string{uri},
+		Qualifiers: []*remoteasset.Qualifier{
+			{Name: "checksum.sri", Value: "sha256-aaa"},
+			{Name: "http_header_url:0:Authorization", Value: "application/zip"},
+			{Name: "bazel.auth_headers", Value: "token‑A"},
+		},
+	}
+
+	// 2nd request differs only in auth headers.
+	req2 := proto.Clone(req1).(*remoteasset.FetchDirectoryRequest)
+	req2.Qualifiers[1].Value = "Bearer second"
+	req2.Qualifiers[2].Value = "token‑two"
+
+	// 3rd request differs in non-auth headers and should be a cache miss from the first.
+	req3 := proto.Clone(req1).(*remoteasset.FetchDirectoryRequest)
+	req3.Qualifiers[0].Value = "Windows"
+
+	dirDigest := &remoteexecution.Digest{
+		Hash:      "2222222222222222222222222222222222222222222222222222222222222222",
+		SizeBytes: 99,
+	}
+
+	backend := mock.NewMockBlobAccess(ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	mockFetcher := mock.NewMockFetcher(ctrl)
+	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
+
+	// 1st fetch is a cache miss, and we'll record the digest used.
+	var firstDigest bb_digest.Digest
+	getMiss := backend.
+		EXPECT().
+		Get(ctx, gomock.Any()).
+		Do(func(_ context.Context, d bb_digest.Digest) {
+			firstDigest = d
+		}).
+		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+	mockFetcher.
+		EXPECT().
+		FetchDirectory(ctx, req1).
+		After(getMiss).
+		Return(&remoteasset.FetchDirectoryResponse{
+			Status:              status.New(codes.OK, "fetched").Proto(),
+			Uri:                 uri,
+			RootDirectoryDigest: dirDigest,
+			Qualifiers:          req1.Qualifiers,
+		}, nil)
+	backend.
+		EXPECT().
+		Put(ctx, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+			require.Equal(t, firstDigest, d)
+			return nil
+		})
+
+	_, err := cachingFetcher.FetchDirectory(ctx, req1)
+	require.NoError(t, err)
+
+	// 2nd fetch should be a cache hit, despite the auth qualifiers being different.
+	backend.
+		EXPECT().
+		Get(ctx, firstDigest).
+		Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(dirDigest, nil), buffer.UserProvided))
+
+	_, err = cachingFetcher.FetchDirectory(ctx, req2)
+	require.NoError(t, err)
+
+	// 3rd fetch should be a cache miss since non-auth qualifiers differ.
+	var thirdDigest bb_digest.Digest
+	getMiss = backend.
+		EXPECT().
+		Get(ctx, gomock.Any()).
+		Do(func(_ context.Context, d bb_digest.Digest) {
+			require.NotEqual(t, firstDigest, d)
+			thirdDigest = d
+		}).
+		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+	mockFetcher.
+		EXPECT().
+		FetchDirectory(ctx, req3).
+		After(getMiss).
+		Return(&remoteasset.FetchDirectoryResponse{
+			Status:              status.New(codes.OK, "fetched").Proto(),
+			Uri:                 uri,
+			RootDirectoryDigest: dirDigest,
+			Qualifiers:          req3.Qualifiers,
+		}, nil)
+	backend.
+		EXPECT().
+		Put(ctx, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+			require.Equal(t, thirdDigest, d)
+			return nil
+		})
+	_, err = cachingFetcher.FetchDirectory(ctx, req3)
+	require.NoError(t, err)
+}
