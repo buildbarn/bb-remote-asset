@@ -27,7 +27,11 @@ func NewAssetStoreFromConfiguration(
 	var assetStore storage.AssetStore
 	switch backend := configuration.Backend.(type) {
 	case *pb.AssetCacheConfiguration_BlobAccess:
-		assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(grpcClientFactory, maximumMessageSizeBytes)
+		assetBlobAccessCreator := asset_configuration.NewAssetBlobAccessCreator(
+			dependenciesGroup,
+			grpcClientFactory,
+			maximumMessageSizeBytes,
+		)
 
 		assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 			dependenciesGroup,

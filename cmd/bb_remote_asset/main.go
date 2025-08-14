@@ -43,17 +43,17 @@ func main() {
 		if err := util.UnmarshalConfigurationFromFile(os.Args[1], &config); err != nil {
 			return util.StatusWrapf(err, "Failed to read configuration from %s", os.Args[1])
 		}
-		lifecycleState, grpcClientFactory, err := global.ApplyConfiguration(config.Global)
+		lifecycleState, grpcClientFactory, err := global.ApplyConfiguration(config.Global, dependenciesGroup)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to apply global configuration options")
 		}
 
-		fetchAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.FetchAuthorizer, grpcClientFactory)
+		fetchAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.FetchAuthorizer, dependenciesGroup, grpcClientFactory)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to create Fetch Authorizer from Configuration")
 		}
 
-		pushAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.PushAuthorizer, grpcClientFactory)
+		pushAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(config.PushAuthorizer, dependenciesGroup, grpcClientFactory)
 		if err != nil {
 			return util.StatusWrap(err, "Failed to create Push Authorizer from Configuration")
 		}
@@ -100,6 +100,7 @@ func main() {
 			assetStore,
 			contentAddressableStorageInfo.BlobAccess,
 			grpcClientFactory,
+			dependenciesGroup,
 			int(config.MaximumMessageSizeBytes),
 			fetchAuthorizer,
 		)

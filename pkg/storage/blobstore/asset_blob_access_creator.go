@@ -10,6 +10,7 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/capabilities"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
+	"github.com/buildbarn/bb-storage/pkg/program"
 	pb "github.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,7 +25,7 @@ type assetBlobAccessCreator struct {
 
 // NewAssetBlobAccessCreator creates a new BlobAccessCreator suitable for creating BlobAccesses
 // used for storage of Assets.
-func NewAssetBlobAccessCreator(grpcClientFactory grpc.ClientFactory, maximumMessageSizeBytes int) configuration.BlobAccessCreator {
+func NewAssetBlobAccessCreator(terminationGroup program.Group, grpcClientFactory grpc.ClientFactory, maximumMessageSizeBytes int) configuration.BlobAccessCreator {
 	return &assetBlobAccessCreator{
 		grpcClientFactory:       grpcClientFactory,
 		maximumMessageSizeBytes: maximumMessageSizeBytes,
@@ -43,7 +44,7 @@ func (bac *assetBlobAccessCreator) GetStorageTypeName() string {
 	return "asset"
 }
 
-func (bac *assetBlobAccessCreator) NewCustomBlobAccess(config *pb.BlobAccessConfiguration, creator configuration.NestedBlobAccessCreator) (configuration.BlobAccessInfo, string, error) {
+func (bac *assetBlobAccessCreator) NewCustomBlobAccess(terminationGroup program.Group, config *pb.BlobAccessConfiguration, creator configuration.NestedBlobAccessCreator) (configuration.BlobAccessInfo, string, error) {
 	return configuration.BlobAccessInfo{}, "", status.Error(codes.InvalidArgument, "Configuration did not contain a supported storage backend")
 }
 
