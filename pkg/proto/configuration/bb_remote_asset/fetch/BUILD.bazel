@@ -5,10 +5,11 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
     name = "fetch_proto",
     srcs = ["fetcher.proto"],
+    import_prefix = "github.com/buildbarn/bb-remote-asset",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto",
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/http:http_proto",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/http/client:client_proto",
         "@googleapis//google/rpc:status_proto",
     ],
 )
@@ -20,7 +21,7 @@ go_proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc",
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/http",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/http/client",
         "@org_golang_google_genproto_googleapis_rpc//status",
     ],
 )

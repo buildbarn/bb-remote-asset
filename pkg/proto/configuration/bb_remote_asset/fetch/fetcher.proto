@@ -3,8 +3,8 @@ syntax = "proto3";
 package buildbarn.configuration.bb_remote_asset.fetch;
 
 import "google/rpc/status.proto";
-import "pkg/proto/configuration/grpc/grpc.proto";
-import "pkg/proto/configuration/http/http.proto";
+import "github.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto";
+import "github.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto";
 
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch";
 
@@ -47,7 +47,7 @@ message FetcherConfiguration {
     reserved 2;
 
     // Optional: Options to be used by the HTTP client.
-    buildbarn.configuration.http.ClientConfiguration client = 3;
+    buildbarn.configuration.http.client.Configuration client = 3;
   }
 
   message RemoteExecutionFetcherConfiguration {

@@ -1,0 +1,29 @@
+diff --git tools/github_workflows/workflows_template.libsonnet tools/github_workflows/workflows_template.libsonnet
+index 43c308c..4e27a62 100644
+--- tools/github_workflows/workflows_template.libsonnet
++++ tools/github_workflows/workflows_template.libsonnet
+@@ -33,10 +33,6 @@
+       name: 'freebsd_amd64',
+       extension: '',
+     },
+-    {
+-      name: 'windows_amd64',
+-      extension: '.exe',
+-    },
+   ],
+ 
+   local getJobs(binaries, containers, setupSteps, extraSteps, doUpload, enableCgo) = {
+@@ -51,13 +47,6 @@
+               platform_name: 'linux_amd64',
+               upload: true,
+             },
+-            {
+-              bazel_os: 'windows',
+-              cross_compile: false,
+-              os: 'windows-latest',
+-              platform_name: 'windows_amd64',
+-              upload: false,
+-            },
+           ],
+         },
+       },
