@@ -37,9 +37,14 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			if err != nil {
 				return nil, err
 			}
-			fetcher = fetch.NewHTTPFetcher(
+			httpFetcher := fetch.NewHTTPFetcher(
 				&http.Client{Transport: roundTripper},
 				contentAddressableStorage)
+			// Wrap HTTP fetcher with coalescing to deduplicate concurrent
+			// requests for the same resource. Only needed for HTTP path -
+			// RemoteExecution path already deduplicates via bb-remote-execution's
+			// scheduler.
+			fetcher = fetch.NewCoalescingFetcher(httpFetcher)
 		case *pb.FetcherConfiguration_Error:
 			fetcher = fetch.NewErrorFetcher(backend.Error)
 		case *pb.FetcherConfiguration_RemoteExecution:

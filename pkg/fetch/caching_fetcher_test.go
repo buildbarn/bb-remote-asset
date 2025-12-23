@@ -2,6 +2,8 @@ package fetch_test
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -430,4 +432,85 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 		})
 	_, err = cachingFetcher.FetchDirectory(ctx, req3)
 	require.NoError(t, err)
+}
+
+// TestConcurrentFetchBlobCacheMissWithCoalescing verifies that concurrent
+// requests for the same uncached URI are deduplicated by the coalescing fetcher.
+// Only one upstream fetch should occur even when multiple concurrent requests
+// arrive simultaneously.
+//
+// The test uses a barrier pattern to ensure all goroutines start simultaneously,
+// maximizing the chance of hitting the race window.
+func TestConcurrentFetchBlobCacheMissWithCoalescing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	ctx := context.Background()
+
+	uri := "https://example.com/concurrent-test.tar.gz"
+	request := &remoteasset.FetchBlobRequest{
+		InstanceName: "",
+		Uris:         []string{uri},
+	}
+	blobDigest := &remoteexecution.Digest{
+		Hash:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		SizeBytes: 100,
+	}
+
+	// Track how many times the underlying fetcher is called
+	var fetchCount atomic.Int32
+
+	backend := mock.NewMockBlobAccess(ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	mockFetcher := mock.NewMockFetcher(ctrl)
+
+	// Build the fetcher chain: CachingFetcher -> CoalescingFetcher -> MockFetcher
+	// This matches the wiring in new_fetcher.go
+	coalescingFetcher := fetch.NewCoalescingFetcher(mockFetcher)
+	cachingFetcher := fetch.NewCachingFetcher(coalescingFetcher, assetStore)
+
+	// Backend always returns cache miss
+	backend.EXPECT().Get(gomock.Any(), gomock.Any()).
+		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss"))).
+		AnyTimes()
+
+	// Backend accepts any Put calls
+	backend.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil).
+		AnyTimes()
+
+	// Mock fetcher with delay to widen the race window, tracking call count
+	mockFetcher.EXPECT().FetchBlob(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
+			fetchCount.Add(1)
+			time.Sleep(50 * time.Millisecond) // Widen race window
+			return &remoteasset.FetchBlobResponse{
+				Status:     status.New(codes.OK, "fetched").Proto(),
+				Uri:        uri,
+				BlobDigest: blobDigest,
+			}, nil
+		}).
+		AnyTimes()
+
+	// Launch concurrent requests
+	const numGoroutines = 10
+	var wg sync.WaitGroup
+	var startBarrier sync.WaitGroup
+	startBarrier.Add(1)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			startBarrier.Wait() // All goroutines start together
+			_, _ = cachingFetcher.FetchBlob(ctx, request)
+		}()
+	}
+
+	// Release all goroutines simultaneously
+	startBarrier.Done()
+	wg.Wait()
+
+	// With coalescing: fetchCount should be 1 (requests share single fetch)
+	actualCount := fetchCount.Load()
+	require.Equal(t, int32(1), actualCount,
+		"Expected exactly 1 fetch call but got %d - coalescing should deduplicate concurrent requests", actualCount)
 }

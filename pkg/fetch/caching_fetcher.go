@@ -51,7 +51,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 
 	// Check assetStore
 	for _, uri := range req.Uris {
-		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, removeVolatileQualifiers(req.Qualifiers), digestFunction, oldestContentAccepted)
+		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, RemoveVolatileQualifiers(req.Qualifiers), digestFunction, oldestContentAccepted)
 		if err != nil {
 			allCachingErrors = append(allCachingErrors, err)
 			continue
@@ -83,7 +83,7 @@ func (cf *cachingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 	}
 
 	// Cache fetched blob with single URI
-	assetRef := storage.NewAssetReference([]string{response.Uri}, removeVolatileQualifiers(response.Qualifiers))
+	assetRef := storage.NewAssetReference([]string{response.Uri}, RemoveVolatileQualifiers(response.Qualifiers))
 	assetData := storage.NewBlobAsset(response.BlobDigest, getDefaultTimestamp())
 	err = cf.assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	if err != nil {
@@ -134,8 +134,10 @@ func getAndCheckAsset(
 	return assetData, nil
 }
 
-func removeVolatileQualifiers(qualifiers []*remoteasset.Qualifier) []*remoteasset.Qualifier {
-	// Remove qualifiers that are volatile, like auth headers which may change frequently.
+// RemoveVolatileQualifiers filters out qualifiers that are volatile and should
+// not be used for cache key generation or request deduplication. This includes
+// authentication headers that may change frequently.
+func RemoveVolatileQualifiers(qualifiers []*remoteasset.Qualifier) []*remoteasset.Qualifier {
 	var stableQualifiers []*remoteasset.Qualifier
 	for _, qualifier := range qualifiers {
 		if strings.HasPrefix(qualifier.Name, "http_header_url:") {
@@ -164,7 +166,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 
 	// Check refStore
 	for _, uri := range req.Uris {
-		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, removeVolatileQualifiers(req.Qualifiers), digestFunction, oldestContentAccepted)
+		assetData, err := getAndCheckAsset(ctx, cf.assetStore, uri, RemoveVolatileQualifiers(req.Qualifiers), digestFunction, oldestContentAccepted)
 		if err != nil {
 			allCachingErrors = append(allCachingErrors, err)
 			continue
@@ -193,7 +195,7 @@ func (cf *cachingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.F
 	}
 
 	// Cache fetched blob with single URI
-	assetRef := storage.NewAssetReference([]string{response.Uri}, removeVolatileQualifiers(response.Qualifiers))
+	assetRef := storage.NewAssetReference([]string{response.Uri}, RemoveVolatileQualifiers(response.Qualifiers))
 	assetData := storage.NewDirectoryAsset(response.RootDirectoryDigest, getDefaultTimestamp())
 	err = cf.assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	if err != nil {

@@ -6,6 +6,7 @@ go_library(
         "auth_headers.go",
         "authorizing_fetcher.go",
         "caching_fetcher.go",
+        "coalescing_fetcher.go",
         "error_fetcher.go",
         "fetcher.go",
         "http_fetcher.go",
@@ -46,6 +47,7 @@ go_test(
     srcs = [
         "authorizing_fetcher_test.go",
         "caching_fetcher_test.go",
+        "coalescing_fetcher_test.go",
         "http_fetcher_test.go",
         "validating_fetcher_test.go",
     ],
