@@ -24,9 +24,37 @@
                "run": "bazel ${{ matrix.host.platform_name == 'linux_amd64' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:linux_amd64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
             },
             {
+               "if": "matrix.host.upload",
+               "name": "linux_amd64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:linux_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "linux_amd64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.linux_amd64",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
                "if": "matrix.host.cross_compile || matrix.host.platform_name == 'linux_386'",
                "name": "linux_386: build${{ matrix.host.platform_name == 'linux_amd64' && ' and test' || '' }}",
                "run": "bazel ${{ matrix.host.platform_name == 'linux_amd64' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:linux_386 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "linux_386: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:linux_386 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "linux_386: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.linux_386",
+                  "path": "bb_remote_asset"
+               }
             },
             {
                "if": "matrix.host.cross_compile || matrix.host.platform_name == 'linux_arm'",
@@ -34,9 +62,37 @@
                "run": "bazel ${{ matrix.host.platform_name == 'linux_arm' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:linux_arm --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
             },
             {
+               "if": "matrix.host.upload",
+               "name": "linux_arm: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:linux_arm //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "linux_arm: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.linux_arm",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
                "if": "matrix.host.cross_compile || matrix.host.platform_name == 'linux_arm64'",
                "name": "linux_arm64: build${{ matrix.host.platform_name == 'linux_arm64' && ' and test' || '' }}",
                "run": "bazel ${{ matrix.host.platform_name == 'linux_arm64' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:linux_arm64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "linux_arm64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:linux_arm64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "linux_arm64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.linux_arm64",
+                  "path": "bb_remote_asset"
+               }
             },
             {
                "if": "matrix.host.cross_compile || matrix.host.platform_name == 'darwin_amd64'",
@@ -44,14 +100,69 @@
                "run": "bazel ${{ matrix.host.platform_name == 'darwin_amd64' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:darwin_amd64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
             },
             {
+               "if": "matrix.host.upload",
+               "name": "darwin_amd64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:darwin_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "darwin_amd64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.darwin_amd64",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
                "if": "matrix.host.cross_compile || matrix.host.platform_name == 'darwin_arm64'",
                "name": "darwin_arm64: build${{ matrix.host.platform_name == 'darwin_arm64' && ' and test' || '' }}",
                "run": "bazel ${{ matrix.host.platform_name == 'darwin_arm64' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:darwin_arm64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
             },
             {
+               "if": "matrix.host.upload",
+               "name": "darwin_arm64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:darwin_arm64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "darwin_arm64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.darwin_arm64",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
                "if": "matrix.host.cross_compile || matrix.host.platform_name == 'freebsd_amd64'",
                "name": "freebsd_amd64: build${{ matrix.host.platform_name == 'freebsd_amd64' && ' and test' || '' }}",
                "run": "bazel ${{ matrix.host.platform_name == 'freebsd_amd64' && 'test --test_output=errors' || 'build --platforms=@rules_go//go/toolchain:freebsd_amd64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=False' }} //..."
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "freebsd_amd64: copy bb_remote_asset",
+               "run": "rm -f bb_remote_asset && bazel run --run_under cp --platforms=@rules_go//go/toolchain:freebsd_amd64 //cmd/bb_remote_asset $(pwd)/bb_remote_asset"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "freebsd_amd64: upload bb_remote_asset",
+               "uses": "actions/upload-artifact@v4",
+               "with": {
+                  "name": "bb_remote_asset.freebsd_amd64",
+                  "path": "bb_remote_asset"
+               }
+            },
+            {
+               "env": {
+                  "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+               },
+               "if": "matrix.host.upload",
+               "name": "Install Docker credentials",
+               "run": "echo \"${GITHUB_TOKEN}\" | docker login ghcr.io -u $ --password-stdin"
+            },
+            {
+               "if": "matrix.host.upload",
+               "name": "Push container bb_remote_asset:bb_remote_asset",
+               "run": "bazel run --stamp //cmd/bb_remote_asset:bb_remote_asset_container_push"
             }
          ],
          "strategy": {
@@ -96,9 +207,9 @@
          ]
       }
    },
-   "name": "pull-requests",
+   "name": "main",
    "on": {
-      "pull_request": {
+      "push": {
          "branches": [
             "main"
          ]

@@ -3,6 +3,7 @@ load("@gazelle//:def.bzl", "gazelle")
 
 # gazelle:go_naming_convention_external import
 # gazelle:prefix github.com/buildbarn/bb-remote-asset
+# gazelle:proto_import_prefix github.com/buildbarn/bb-remote-asset
 # gazelle:resolve proto build/bazel/remote/asset/v1/remote_asset.proto @bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_proto
 # gazelle:resolve proto build/bazel/remote/execution/v2/remote_execution.proto @bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_proto
 # gazelle:resolve proto go build/bazel/remote/asset/v1/remote_asset.proto @bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_go_proto
@@ -12,21 +13,12 @@ load("@gazelle//:def.bzl", "gazelle")
 # gazelle:resolve proto go google/bytestream/bytestream.proto @org_golang_google_genproto_googleapis_bytestream//:bytestream
 # gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status
 # gazelle:resolve proto go opentelemetry/proto/common/v1/common.proto @io_opentelemetry_go_proto_otlp//common/v1:common
-# gazelle:resolve proto go pkg/proto/configuration/auth/auth.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/auth
-# gazelle:resolve proto go pkg/proto/configuration/blobstore/blobstore.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore
-# gazelle:resolve proto go pkg/proto/configuration/global/global.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/global
-# gazelle:resolve proto go pkg/proto/configuration/grpc/grpc.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc
-# gazelle:resolve proto go pkg/proto/configuration/http/http.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/http
 # gazelle:resolve proto google/bytestream/bytestream.proto @googleapis//google/bytestream:bytestream_proto
-# gazelle:resolve proto google/protobuf/timestamp.proto @protobuf//:timestamp_proto
 # gazelle:resolve proto google/rpc/status.proto @googleapis//google/rpc:status_proto
 # gazelle:resolve proto opentelemetry/proto/common/v1/common.proto @io_opentelemetry_proto//:common_proto
-# gazelle:resolve proto pkg/proto/auth/auth.proto @com_github_buildbarn_bb_storage//pkg/proto/auth:auth_proto
-# gazelle:resolve proto pkg/proto/configuration/auth/auth.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/auth:auth_proto
-# gazelle:resolve proto pkg/proto/configuration/blobstore/blobstore.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto
-# gazelle:resolve proto pkg/proto/configuration/global/global.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto
-# gazelle:resolve proto pkg/proto/configuration/grpc/grpc.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc:grpc_proto
-# gazelle:resolve proto pkg/proto/configuration/http/http.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/http:http_proto
+# gazelle:resolve_regexp proto github.com/buildbarn/bb-storage/(.*)/(.*)\.proto @com_github_buildbarn_bb_storage//$1:${2}_proto
+# gazelle:resolve_regexp proto go github.com/buildbarn/bb-storage/(.*)/(.*)\.proto @com_github_buildbarn_bb_storage//$1:$2
+# gazelle:resolve_regexp proto google/protobuf/(.*)\.proto @protobuf//:${1}_proto
 gazelle(
     name = "gazelle",
 )
