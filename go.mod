@@ -8,7 +8,7 @@ replace go.uber.org/mock => go.uber.org/mock v0.4.0
 require (
 	github.com/bazelbuild/buildtools v0.0.0-20260211083412-859bfffeef82
 	github.com/bazelbuild/remote-apis v0.0.0-20260216160025-715b73f3f9e4
-	github.com/buildbarn/bb-storage v0.0.0-20260303071613-6002cad33537
+	github.com/buildbarn/bb-storage v0.0.0-20260317135248-dc342e1799d7
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1

@@ -20,6 +20,7 @@ go_library(
         "@com_github_buildbarn_bb_storage//pkg/grpc",
         "@com_github_buildbarn_bb_storage//pkg/program",
         "@com_github_buildbarn_bb_storage//pkg/util",
+        "@com_github_buildbarn_bb_storage//pkg/zstd",
         "@org_golang_google_genproto_googleapis_rpc//status",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
