@@ -59,7 +59,7 @@ func main() {
 			return util.StatusWrap(err, "Failed to create Push Authorizer from Configuration")
 		}
 
-		zstdPool := bb_zstd.NewPoolFromConfiguration(nil)
+		zstdPool := bb_zstd.NewPoolFromConfiguration(config.ZstdPool)
 
 		// Initialize CAS storage access
 		contentAddressableStorageInfo, err := blobstore_configuration.NewBlobAccessFromConfiguration(

@@ -12,6 +12,7 @@ import (
 	blobstore "github.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore"
 	global "github.com/buildbarn/bb-storage/pkg/proto/configuration/global"
 	grpc "github.com/buildbarn/bb-storage/pkg/proto/configuration/grpc"
+	zstd "github.com/buildbarn/bb-storage/pkg/proto/configuration/zstd"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -27,18 +28,34 @@ const (
 )
 
 type ApplicationConfiguration struct {
-	state                     protoimpl.MessageState             `protogen:"open.v1"`
-	GrpcServers               []*grpc.ServerConfiguration        `protobuf:"bytes,3,rep,name=grpc_servers,json=grpcServers,proto3" json:"grpc_servers,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// gRPC servers to spawn to listen for remote asset API connections
+	GrpcServers []*grpc.ServerConfiguration `protobuf:"bytes,3,rep,name=grpc_servers,json=grpcServers,proto3" json:"grpc_servers,omitempty"`
+	// The content addressable storage in which the data of the assets
+	// are stored
 	ContentAddressableStorage *blobstore.BlobAccessConfiguration `protobuf:"bytes,4,opt,name=content_addressable_storage,json=contentAddressableStorage,proto3" json:"content_addressable_storage,omitempty"`
-	MaximumMessageSizeBytes   int64                              `protobuf:"varint,5,opt,name=maximum_message_size_bytes,json=maximumMessageSizeBytes,proto3" json:"maximum_message_size_bytes,omitempty"`
-	Global                    *global.Configuration              `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
-	AllowUpdatesForInstances  []string                           `protobuf:"bytes,7,rep,name=allow_updates_for_instances,json=allowUpdatesForInstances,proto3" json:"allow_updates_for_instances,omitempty"`
-	Fetcher                   *fetch.FetcherConfiguration        `protobuf:"bytes,8,opt,name=fetcher,proto3" json:"fetcher,omitempty"`
-	AssetCache                *AssetCacheConfiguration           `protobuf:"bytes,9,opt,name=asset_cache,json=assetCache,proto3" json:"asset_cache,omitempty"`
-	FetchAuthorizer           *auth.AuthorizerConfiguration      `protobuf:"bytes,10,opt,name=fetch_authorizer,json=fetchAuthorizer,proto3" json:"fetch_authorizer,omitempty"`
-	PushAuthorizer            *auth.AuthorizerConfiguration      `protobuf:"bytes,11,opt,name=push_authorizer,json=pushAuthorizer,proto3" json:"push_authorizer,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Maximum Protobuf message size to unmarshal.
+	MaximumMessageSizeBytes int64 `protobuf:"varint,5,opt,name=maximum_message_size_bytes,json=maximumMessageSizeBytes,proto3" json:"maximum_message_size_bytes,omitempty"`
+	// Common configuration options that apply to all Buildbarn binaries.
+	Global *global.Configuration `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
+	// List of instances which can upload to the Cache
+	// If using an Action Cache backend, uploads may still fail if the
+	// Action Cache does not allow uploads from the instance name used.
+	AllowUpdatesForInstances []string `protobuf:"bytes,7,rep,name=allow_updates_for_instances,json=allowUpdatesForInstances,proto3" json:"allow_updates_for_instances,omitempty"`
+	// Configuration for remote asset FetchServer
+	Fetcher *fetch.FetcherConfiguration `protobuf:"bytes,8,opt,name=fetcher,proto3" json:"fetcher,omitempty"`
+	// The configuration of the asset cache, may be omitted to have no
+	// caching of assets
+	AssetCache *AssetCacheConfiguration `protobuf:"bytes,9,opt,name=asset_cache,json=assetCache,proto3" json:"asset_cache,omitempty"`
+	// Authorization policy for Fetch operations
+	FetchAuthorizer *auth.AuthorizerConfiguration `protobuf:"bytes,10,opt,name=fetch_authorizer,json=fetchAuthorizer,proto3" json:"fetch_authorizer,omitempty"`
+	// Authorization policy for Push operations
+	PushAuthorizer *auth.AuthorizerConfiguration `protobuf:"bytes,11,opt,name=push_authorizer,json=pushAuthorizer,proto3" json:"push_authorizer,omitempty"`
+	// ZSTD encoder/decoder pool configuration. When set, creates a
+	// process-wide pool shared by all gRPC CAS clients.
+	ZstdPool      *zstd.PoolConfiguration `protobuf:"bytes,12,opt,name=zstd_pool,json=zstdPool,proto3" json:"zstd_pool,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ApplicationConfiguration) Reset() {
@@ -134,6 +151,13 @@ func (x *ApplicationConfiguration) GetPushAuthorizer() *auth.AuthorizerConfigura
 	return nil
 }
 
+func (x *ApplicationConfiguration) GetZstdPool() *zstd.PoolConfiguration {
+	if x != nil {
+		return x.ZstdPool
+	}
+	return nil
+}
+
 type AssetCacheConfiguration struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Backend:
@@ -205,10 +229,13 @@ type isAssetCacheConfiguration_Backend interface {
 }
 
 type AssetCacheConfiguration_BlobAccess struct {
+	// Cache assets in a specific storage instance exclusively for
+	// caching assets
 	BlobAccess *blobstore.BlobAccessConfiguration `protobuf:"bytes,1,opt,name=blob_access,json=blobAccess,proto3,oneof"`
 }
 
 type AssetCacheConfiguration_ActionCache struct {
+	// Cache assets in an existing action cache
 	ActionCache *blobstore.BlobAccessConfiguration `protobuf:"bytes,2,opt,name=action_cache,json=actionCache,proto3,oneof"`
 }
 
@@ -220,7 +247,7 @@ var File_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_
 
 const file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_bb_remote_asset_proto_rawDesc = "" +
 	"\n" +
-	"bgithub.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/bb_remote_asset.proto\x12'buildbarn.configuration.bb_remote_asset\x1a`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/auth/auth.proto\x1aQgithub.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore/blobstore.proto\x1aKgithub.com/buildbarn/bb-storage/pkg/proto/configuration/global/global.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\"\xbf\x06\n" +
+	"bgithub.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/bb_remote_asset.proto\x12'buildbarn.configuration.bb_remote_asset\x1a`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/auth/auth.proto\x1aQgithub.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore/blobstore.proto\x1aKgithub.com/buildbarn/bb-storage/pkg/proto/configuration/global/global.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/zstd/zstd.proto\"\x8d\a\n" +
 	"\x18ApplicationConfiguration\x12T\n" +
 	"\fgrpc_servers\x18\x03 \x03(\v21.buildbarn.configuration.grpc.ServerConfigurationR\vgrpcServers\x12z\n" +
 	"\x1bcontent_addressable_storage\x18\x04 \x01(\v2:.buildbarn.configuration.blobstore.BlobAccessConfigurationR\x19contentAddressableStorage\x12;\n" +
@@ -232,7 +259,8 @@ const file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remot
 	"assetCache\x12`\n" +
 	"\x10fetch_authorizer\x18\n" +
 	" \x01(\v25.buildbarn.configuration.auth.AuthorizerConfigurationR\x0ffetchAuthorizer\x12^\n" +
-	"\x0fpush_authorizer\x18\v \x01(\v25.buildbarn.configuration.auth.AuthorizerConfigurationR\x0epushAuthorizerJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\xe4\x01\n" +
+	"\x0fpush_authorizer\x18\v \x01(\v25.buildbarn.configuration.auth.AuthorizerConfigurationR\x0epushAuthorizer\x12L\n" +
+	"\tzstd_pool\x18\f \x01(\v2/.buildbarn.configuration.zstd.PoolConfigurationR\bzstdPoolJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\xe4\x01\n" +
 	"\x17AssetCacheConfiguration\x12]\n" +
 	"\vblob_access\x18\x01 \x01(\v2:.buildbarn.configuration.blobstore.BlobAccessConfigurationH\x00R\n" +
 	"blobAccess\x12_\n" +
@@ -260,22 +288,24 @@ var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_
 	(*global.Configuration)(nil),              // 4: buildbarn.configuration.global.Configuration
 	(*fetch.FetcherConfiguration)(nil),        // 5: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration
 	(*auth.AuthorizerConfiguration)(nil),      // 6: buildbarn.configuration.auth.AuthorizerConfiguration
+	(*zstd.PoolConfiguration)(nil),            // 7: buildbarn.configuration.zstd.PoolConfiguration
 }
 var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_bb_remote_asset_proto_depIdxs = []int32{
-	2, // 0: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.grpc_servers:type_name -> buildbarn.configuration.grpc.ServerConfiguration
-	3, // 1: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.content_addressable_storage:type_name -> buildbarn.configuration.blobstore.BlobAccessConfiguration
-	4, // 2: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.global:type_name -> buildbarn.configuration.global.Configuration
-	5, // 3: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.fetcher:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration
-	1, // 4: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.asset_cache:type_name -> buildbarn.configuration.bb_remote_asset.AssetCacheConfiguration
-	6, // 5: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.fetch_authorizer:type_name -> buildbarn.configuration.auth.AuthorizerConfiguration
-	6, // 6: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.push_authorizer:type_name -> buildbarn.configuration.auth.AuthorizerConfiguration
-	3, // 7: buildbarn.configuration.bb_remote_asset.AssetCacheConfiguration.blob_access:type_name -> buildbarn.configuration.blobstore.BlobAccessConfiguration
-	3, // 8: buildbarn.configuration.bb_remote_asset.AssetCacheConfiguration.action_cache:type_name -> buildbarn.configuration.blobstore.BlobAccessConfiguration
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	2,  // 0: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.grpc_servers:type_name -> buildbarn.configuration.grpc.ServerConfiguration
+	3,  // 1: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.content_addressable_storage:type_name -> buildbarn.configuration.blobstore.BlobAccessConfiguration
+	4,  // 2: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.global:type_name -> buildbarn.configuration.global.Configuration
+	5,  // 3: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.fetcher:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration
+	1,  // 4: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.asset_cache:type_name -> buildbarn.configuration.bb_remote_asset.AssetCacheConfiguration
+	6,  // 5: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.fetch_authorizer:type_name -> buildbarn.configuration.auth.AuthorizerConfiguration
+	6,  // 6: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.push_authorizer:type_name -> buildbarn.configuration.auth.AuthorizerConfiguration
+	7,  // 7: buildbarn.configuration.bb_remote_asset.ApplicationConfiguration.zstd_pool:type_name -> buildbarn.configuration.zstd.PoolConfiguration
+	3,  // 8: buildbarn.configuration.bb_remote_asset.AssetCacheConfiguration.blob_access:type_name -> buildbarn.configuration.blobstore.BlobAccessConfiguration
+	3,  // 9: buildbarn.configuration.bb_remote_asset.AssetCacheConfiguration.action_cache:type_name -> buildbarn.configuration.blobstore.BlobAccessConfiguration
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() {
