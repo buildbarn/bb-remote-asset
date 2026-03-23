@@ -28,34 +28,19 @@ const (
 )
 
 type ApplicationConfiguration struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// gRPC servers to spawn to listen for remote asset API connections
-	GrpcServers []*grpc.ServerConfiguration `protobuf:"bytes,3,rep,name=grpc_servers,json=grpcServers,proto3" json:"grpc_servers,omitempty"`
-	// The content addressable storage in which the data of the assets
-	// are stored
+	state                     protoimpl.MessageState             `protogen:"open.v1"`
+	GrpcServers               []*grpc.ServerConfiguration        `protobuf:"bytes,3,rep,name=grpc_servers,json=grpcServers,proto3" json:"grpc_servers,omitempty"`
 	ContentAddressableStorage *blobstore.BlobAccessConfiguration `protobuf:"bytes,4,opt,name=content_addressable_storage,json=contentAddressableStorage,proto3" json:"content_addressable_storage,omitempty"`
-	// Maximum Protobuf message size to unmarshal.
-	MaximumMessageSizeBytes int64 `protobuf:"varint,5,opt,name=maximum_message_size_bytes,json=maximumMessageSizeBytes,proto3" json:"maximum_message_size_bytes,omitempty"`
-	// Common configuration options that apply to all Buildbarn binaries.
-	Global *global.Configuration `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
-	// List of instances which can upload to the Cache
-	// If using an Action Cache backend, uploads may still fail if the
-	// Action Cache does not allow uploads from the instance name used.
-	AllowUpdatesForInstances []string `protobuf:"bytes,7,rep,name=allow_updates_for_instances,json=allowUpdatesForInstances,proto3" json:"allow_updates_for_instances,omitempty"`
-	// Configuration for remote asset FetchServer
-	Fetcher *fetch.FetcherConfiguration `protobuf:"bytes,8,opt,name=fetcher,proto3" json:"fetcher,omitempty"`
-	// The configuration of the asset cache, may be omitted to have no
-	// caching of assets
-	AssetCache *AssetCacheConfiguration `protobuf:"bytes,9,opt,name=asset_cache,json=assetCache,proto3" json:"asset_cache,omitempty"`
-	// Authorization policy for Fetch operations
-	FetchAuthorizer *auth.AuthorizerConfiguration `protobuf:"bytes,10,opt,name=fetch_authorizer,json=fetchAuthorizer,proto3" json:"fetch_authorizer,omitempty"`
-	// Authorization policy for Push operations
-	PushAuthorizer *auth.AuthorizerConfiguration `protobuf:"bytes,11,opt,name=push_authorizer,json=pushAuthorizer,proto3" json:"push_authorizer,omitempty"`
-	// ZSTD encoder/decoder pool configuration. When set, creates a
-	// process-wide pool shared by all gRPC CAS clients.
-	ZstdPool      *zstd.PoolConfiguration `protobuf:"bytes,12,opt,name=zstd_pool,json=zstdPool,proto3" json:"zstd_pool,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MaximumMessageSizeBytes   int64                              `protobuf:"varint,5,opt,name=maximum_message_size_bytes,json=maximumMessageSizeBytes,proto3" json:"maximum_message_size_bytes,omitempty"`
+	Global                    *global.Configuration              `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
+	AllowUpdatesForInstances  []string                           `protobuf:"bytes,7,rep,name=allow_updates_for_instances,json=allowUpdatesForInstances,proto3" json:"allow_updates_for_instances,omitempty"`
+	Fetcher                   *fetch.FetcherConfiguration        `protobuf:"bytes,8,opt,name=fetcher,proto3" json:"fetcher,omitempty"`
+	AssetCache                *AssetCacheConfiguration           `protobuf:"bytes,9,opt,name=asset_cache,json=assetCache,proto3" json:"asset_cache,omitempty"`
+	FetchAuthorizer           *auth.AuthorizerConfiguration      `protobuf:"bytes,10,opt,name=fetch_authorizer,json=fetchAuthorizer,proto3" json:"fetch_authorizer,omitempty"`
+	PushAuthorizer            *auth.AuthorizerConfiguration      `protobuf:"bytes,11,opt,name=push_authorizer,json=pushAuthorizer,proto3" json:"push_authorizer,omitempty"`
+	ZstdPool                  *zstd.PoolConfiguration            `protobuf:"bytes,12,opt,name=zstd_pool,json=zstdPool,proto3" json:"zstd_pool,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *ApplicationConfiguration) Reset() {
@@ -229,13 +214,10 @@ type isAssetCacheConfiguration_Backend interface {
 }
 
 type AssetCacheConfiguration_BlobAccess struct {
-	// Cache assets in a specific storage instance exclusively for
-	// caching assets
 	BlobAccess *blobstore.BlobAccessConfiguration `protobuf:"bytes,1,opt,name=blob_access,json=blobAccess,proto3,oneof"`
 }
 
 type AssetCacheConfiguration_ActionCache struct {
-	// Cache assets in an existing action cache
 	ActionCache *blobstore.BlobAccessConfiguration `protobuf:"bytes,2,opt,name=action_cache,json=actionCache,proto3,oneof"`
 }
 
