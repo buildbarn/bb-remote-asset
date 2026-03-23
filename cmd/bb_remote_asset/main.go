@@ -18,6 +18,7 @@ import (
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/program"
 	"github.com/buildbarn/bb-storage/pkg/util"
+	bb_zstd "github.com/buildbarn/bb-storage/pkg/zstd"
 	protostatus "google.golang.org/genproto/googleapis/rpc/status"
 
 	"google.golang.org/grpc"
@@ -58,6 +59,8 @@ func main() {
 			return util.StatusWrap(err, "Failed to create Push Authorizer from Configuration")
 		}
 
+		zstdPool := bb_zstd.NewPoolFromConfiguration(config.ZstdPool)
+
 		// Initialize CAS storage access
 		contentAddressableStorageInfo, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 			dependenciesGroup,
@@ -65,6 +68,7 @@ func main() {
 			blobstore_configuration.NewCASBlobAccessCreator(
 				grpcClientFactory,
 				int(config.MaximumMessageSizeBytes),
+				zstdPool,
 			),
 		)
 		if err != nil {
