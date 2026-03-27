@@ -242,7 +242,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		require.Equal(t, response.Status.Code, int32(codes.OK))
 	})
 
-	t.Run("UnknownChecksumSriAlgo", func(t *testing.T) {
+	t.Run("NoSupportedChecksum", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
 			InstanceName: InstanceName,
 			Uris:         []string{uri, "www.another.com"},
@@ -255,42 +255,35 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		}
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
-		testutil.RequireEqualStatus(t, status.Error(codes.InvalidArgument, "Unsupported checksum algorithm sha0"), err)
+		testutil.RequireEqualStatus(t, status.Error(codes.InvalidArgument, "No supported checksum in checksum.sri qualifier"), err)
 		require.Nil(t, response)
 	})
 
-	t.Run("BadChecksumSriAlgo", func(t *testing.T) {
+	t.Run("MultipleChecksumsFirstUnsupported", func(t *testing.T) {
+		// First checksum uses unsupported algo, second is valid - should succeed
 		request := &remoteasset.FetchBlobRequest{
 			InstanceName: InstanceName,
-			Uris:         []string{uri, "www.another.com"},
+			Uris:         []string{uri},
 			Qualifiers: []*remoteasset.Qualifier{
 				{
 					Name:  "checksum.sri",
-					Value: "no_dash",
+					Value: "sha0-invalid " + digestToChecksumSri(remoteexecution.DigestFunction_SHA256, helloDigest),
 				},
 			},
 		}
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
+		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
-		testutil.RequireEqualStatus(t, status.Error(codes.InvalidArgument, "Bad checksum.sri hash expression: no_dash"), err)
-		require.Nil(t, response)
-	})
-
-	t.Run("BadChecksumSriBase64Value", func(t *testing.T) {
-		request := &remoteasset.FetchBlobRequest{
-			InstanceName: InstanceName,
-			Uris:         []string{uri, "www.another.com"},
-			Qualifiers: []*remoteasset.Qualifier{
-				{
-					Name:  "checksum.sri",
-					Value: "sha256-no-base64",
-				},
-			},
-		}
-
-		response, err := HTTPFetcher.FetchBlob(ctx, request)
-		testutil.RequireEqualStatus(t, status.Error(codes.InvalidArgument, "Failed to decode checksum as base64 encoded sha256 sum: illegal base64 data at input byte 2"), err)
-		require.Nil(t, response)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
 	})
 
 	t.Run("OneFailOneSuccess", func(t *testing.T) {
