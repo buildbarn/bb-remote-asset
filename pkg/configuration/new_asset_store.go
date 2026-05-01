@@ -52,7 +52,7 @@ func NewAssetStoreFromConfiguration(
 		if err != nil {
 			return nil, err
 		}
-		assetStore = storage.NewActionCacheAssetStore(actionCache.BlobAccess, contentAddressableStorage.BlobAccess, maximumMessageSizeBytes)
+		assetStore = storage.NewActionCacheAssetStore(actionCache.BlobAccess, contentAddressableStorage.BlobAccess, maximumMessageSizeBytes, configuration.ActionCachePlatform)
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Asset Cache configuration is invalid as no supported Asset Cache is defined.")
 	}
