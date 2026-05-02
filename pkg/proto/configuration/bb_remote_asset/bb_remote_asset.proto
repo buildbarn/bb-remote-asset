@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package buildbarn.configuration.bb_remote_asset;
 
+import "build/bazel/remote/execution/v2/remote_execution.proto";
 import "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto";
 import "github.com/buildbarn/bb-storage/pkg/proto/configuration/auth/auth.proto";
 import "github.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore/blobstore.proto";
@@ -66,4 +67,8 @@ message AssetCacheConfiguration {
     // Cache assets in an existing action cache
     buildbarn.configuration.blobstore.BlobAccessConfiguration action_cache = 2;
   }
+
+  // Optional platform properties to attach to actions created for asset
+  // mappings.
+  build.bazel.remote.execution.v2.Platform action_cache_platform = 3;
 }

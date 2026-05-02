@@ -9,6 +9,7 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/proto/configuration/bb_remote_asset/fetch:fetch_proto",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/auth:auth_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore:blobstore_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global:global_proto",
@@ -24,6 +25,7 @@ go_proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/proto/configuration/bb_remote_asset/fetch",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/auth",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/blobstore",
         "@com_github_buildbarn_bb_storage//pkg/proto/configuration/global",

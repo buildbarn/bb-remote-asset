@@ -36,15 +36,17 @@ type actionCacheAssetStore struct {
 	actionCache               blobstore.BlobAccess
 	contentAddressableStorage blobstore.BlobAccess
 	maximumMessageSizeBytes   int
+	platform                  *remoteexecution.Platform
 }
 
 // NewActionCacheAssetStore creates a new AssetStore which stores it's
 // references as ActionResults in the Action Cache.
-func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.BlobAccess, maximumMessageSizeBytes int) AssetStore {
+func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.BlobAccess, maximumMessageSizeBytes int, platform *remoteexecution.Platform) AssetStore {
 	return &actionCacheAssetStore{
 		actionCache:               actionCache,
 		contentAddressableStorage: contentAddressableStorage,
 		maximumMessageSizeBytes:   maximumMessageSizeBytes,
+		platform:                  platform,
 	}
 }
 
@@ -88,6 +90,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 			Arguments:             ref.Uris,
 			OutputPaths:           []string{"out"},
 			OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
+			Platform:              rs.platform,
 		}
 		_, commandDigest, err := ProtoSerialise(command, digestFunction)
 		if err != nil {
@@ -97,10 +100,14 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 		action = &remoteexecution.Action{
 			CommandDigest:   commandDigest.GetProto(),
 			InputRootDigest: directoryDigest.GetProto(),
+			Platform:        rs.platform,
 		}
 	} else {
 		// Generate a command based on the qualifiers
 		command := commandGenerator(ref.Uris[0])
+		if command.Platform == nil {
+			command.Platform = rs.platform
+		}
 		_, commandDigest, err := ProtoSerialise(command, digestFunction)
 		if err != nil {
 			return nil, nil, err
@@ -109,6 +116,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 		action = &remoteexecution.Action{
 			CommandDigest:   commandDigest.GetProto(),
 			InputRootDigest: EmptyDigest(digestFunction).GetProto(),
+			Platform:        command.Platform,
 		}
 	}
 

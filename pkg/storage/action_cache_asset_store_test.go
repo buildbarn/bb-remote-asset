@@ -91,7 +91,77 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 			}
 			return status.Error(codes.Internal, "Blob digest not found")
 		})
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+
+	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
+	require.NoError(t, err)
+}
+
+func TestActionCacheAssetStorePutBlobWithPlatform(t *testing.T) {
+	ctrl, ctx := gomock.WithContext(context.Background(), t)
+
+	instanceName := util.Must(digest.NewInstanceName(""))
+	digestFunction, err := instanceName.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
+
+	blobDigest := &remoteexecution.Digest{
+		Hash:      "58de0f27ce0f781e5c109f18b0ee6905bdf64f2b1009e225ac67a27f656a0643",
+		SizeBytes: 111,
+	}
+	uri := "https://example.com/example.txt"
+	assetRef := storage.NewAssetReference([]string{uri},
+		[]*remoteasset.Qualifier{{Name: "test", Value: "test"}})
+	assetData := storage.NewBlobAsset(blobDigest, timestamppb.Now())
+
+	platform := &remoteexecution.Platform{
+		Properties: []*remoteexecution.Platform_Property{
+			{Name: "OSFamily", Value: "Linux"},
+		},
+	}
+
+	// Compute expected digests
+	qr := storage.NewAssetReference(nil, assetRef.Qualifiers)
+	_, qrDigest, err := storage.ProtoSerialise(qr, digestFunction)
+	require.NoError(t, err)
+
+	directory := &remoteexecution.Directory{
+		Files: []*remoteexecution.FileNode{{
+			Name:   "AssetReference",
+			Digest: qrDigest.GetProto(),
+		}},
+	}
+	_, directoryDigest, err := storage.ProtoSerialise(directory, digestFunction)
+	require.NoError(t, err)
+
+	command := &remoteexecution.Command{
+		Arguments:             assetRef.Uris,
+		OutputPaths:           []string{"out"},
+		OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
+		Platform:              platform,
+	}
+	_, commandDigest, err := storage.ProtoSerialise(command, digestFunction)
+	require.NoError(t, err)
+
+	action := &remoteexecution.Action{
+		CommandDigest:   commandDigest.GetProto(),
+		InputRootDigest: directoryDigest.GetProto(),
+		Platform:        platform,
+	}
+	_, actionDigest, err := storage.ProtoSerialise(action, digestFunction)
+	require.NoError(t, err)
+
+	ac := mock.NewMockBlobAccess(ctrl)
+	cas := mock.NewMockBlobAccess(ctrl)
+
+	// Expect uploads to CAS with specific digests!
+	cas.EXPECT().Put(ctx, qrDigest, gomock.Any()).Return(nil)
+	cas.EXPECT().Put(ctx, directoryDigest, gomock.Any()).Return(nil)
+	cas.EXPECT().Put(ctx, commandDigest, gomock.Any()).Return(nil)
+	cas.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
+
+	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
+
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, platform)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -184,7 +254,7 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 			}
 			return status.Error(codes.Internal, "Directory digest not found")
 		})
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -230,7 +300,7 @@ func TestActionCacheAssetStorePutMalformedDirectory(t *testing.T) {
 		},
 			buffer.UserProvided))
 
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NotNil(t, err)
@@ -337,7 +407,7 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 			return status.Error(codes.Internal, "Directory digest not found")
 		})
 
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -386,7 +456,7 @@ func TestActionCacheAssetStorePutMalformedDirectoryAsBlob(t *testing.T) {
 			}
 			return status.Error(codes.Internal, "Directory digest not found")
 		})
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -424,7 +494,7 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 				return nil
 			})
 
-		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 		err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 		require.NoError(t, err)
@@ -443,7 +513,7 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 				return buffer.NewBufferFromError(fmt.Errorf("not in AC"))
 			})
 
-		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 		asset, err := assetStore.Get(ctx, assetRef, digestFunction)
 		require.NoError(t, err)
@@ -534,7 +604,7 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 	ac := mock.NewMockBlobAccess(ctrl)
 	cas := mock.NewMockBlobAccess(ctrl)
 	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)
@@ -576,7 +646,7 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 	ac := mock.NewMockBlobAccess(ctrl)
 	cas := mock.NewMockBlobAccess(ctrl)
 	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024)
+	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)
