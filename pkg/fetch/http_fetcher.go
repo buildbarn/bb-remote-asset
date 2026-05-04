@@ -173,7 +173,8 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 	return buffer.NewCASBufferFromByteSlice(digest, bodyBytes, buffer.UserProvided), digest
 }
 
-// getChecksumSri parses the checksum.sri qualifier into an expected digest and a digest function to use
+// getChecksumSri parses the checksum.sri qualifier into an expected digest and a digest function to use.
+// Per the SRI spec, multiple checksums may be space-separated; the first supported one is used.
 func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, bb_digest.Function, error) {
 	hashTypes := map[string]remoteexecution.DigestFunction_Value{
 		"sha256":     remoteexecution.DigestFunction_SHA256,
@@ -183,41 +184,35 @@ func getChecksumSri(qualifiers []*remoteasset.Qualifier) (string, bb_digest.Func
 		"sha512":     remoteexecution.DigestFunction_SHA512,
 		"sha256tree": remoteexecution.DigestFunction_SHA256TREE,
 	}
-	expectedDigest := ""
-	digestFunctionEnum := remoteexecution.DigestFunction_UNKNOWN
 	for _, qualifier := range qualifiers {
 		if qualifier.Name == "checksum.sri" {
-			if digestFunctionEnum != remoteexecution.DigestFunction_UNKNOWN {
-				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Multiple checksum.sri provided")
-			}
-			parts := strings.SplitN(qualifier.Value, "-", 2)
-			if len(parts) != 2 {
-				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Bad checksum.sri hash expression: %s", qualifier.Value)
-			}
-			hashName := parts[0]
-			b64hash := parts[1]
+			for _, checksum := range strings.Fields(qualifier.Value) {
+				parts := strings.SplitN(checksum, "-", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				hashName := parts[0]
+				b64hash := parts[1]
 
-			digestFunctionEnum, ok := hashTypes[hashName]
-			if !ok {
-				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Unsupported checksum algorithm %s", hashName)
-			}
+				digestFunctionEnum, ok := hashTypes[hashName]
+				if !ok {
+					continue
+				}
 
-			// Convert expected digest to hex
-			decoded, err := base64.StdEncoding.DecodeString(b64hash)
-			if err != nil {
-				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Failed to decode checksum as base64 encoded %s sum: %s", hashName, err.Error())
-			}
-			expectedDigest = hex.EncodeToString(decoded)
+				decoded, err := base64.StdEncoding.DecodeString(b64hash)
+				if err != nil {
+					continue
+				}
+				expectedDigest := hex.EncodeToString(decoded)
 
-			// Convert to a proper digest function.
-			// Note: The Instance name doesn't matter here, this function is used only
-			// to give us a convenient API when actually checking the checksum.
-			instance := util.Must(bb_digest.NewInstanceName(""))
-			checksumFunction, err := instance.GetDigestFunction(digestFunctionEnum, len(expectedDigest))
-			if err != nil {
-				return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "Failed to get checksum function for checksum.sri: %s", err.Error())
+				instance := util.Must(bb_digest.NewInstanceName(""))
+				checksumFunction, err := instance.GetDigestFunction(digestFunctionEnum, len(decoded))
+				if err != nil {
+					continue
+				}
+				return expectedDigest, checksumFunction, nil
 			}
-			return expectedDigest, checksumFunction, nil
+			return "", bb_digest.Function{}, status.Errorf(codes.InvalidArgument, "No supported checksum in checksum.sri qualifier")
 		}
 	}
 
