@@ -58,6 +58,13 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	if assetStore != nil {
 		fetcher = fetch.NewCachingFetcher(fetcher, assetStore)
 	}
+	if configuration.Policy != nil {
+		var err error
+		fetcher, err = fetch.NewPolicyFetcher(fetcher, configuration.Policy)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return fetch.NewAuthorizingFetcher(
 		fetch.NewMetricsFetcher(
 			fetch.NewLoggingFetcher(
