@@ -74,6 +74,7 @@ func main() {
 		if err != nil {
 			return util.StatusWrap(err, "Failed to create CAS blob access")
 		}
+
 		var assetStore storage.AssetStore
 		if config.AssetCache != nil {
 			assetStore, err = configuration.NewAssetStoreFromConfiguration(
@@ -82,8 +83,6 @@ func main() {
 				grpcClientFactory,
 				int(config.MaximumMessageSizeBytes),
 				dependenciesGroup,
-				fetchAuthorizer,
-				pushAuthorizer,
 			)
 			if err != nil {
 				return util.StatusWrap(err, "Failed to create asset store")
@@ -117,12 +116,13 @@ func main() {
 			pushServer := push.NewAssetPushServer(
 				assetStore,
 				allowUpdatesForInstances)
+			pushServer = push.NewAuthorizingPushServer(pushServer, pushAuthorizer)
 			metricsPushServer = push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
 		} else {
-			metricsPushServer = push.NewErrorPushServer(&protostatus.Status{
+			metricsPushServer = push.NewAuthorizingPushServer(push.NewErrorPushServer(&protostatus.Status{
 				Code:    int32(codes.FailedPrecondition),
 				Message: "Server is not configured to allow pushing assets",
-			})
+			}), pushAuthorizer)
 		}
 
 		// Spawn gRPC servers for client and worker traffic.

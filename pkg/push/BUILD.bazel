@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "push",
     srcs = [
+        "authorizing_push_server.go",
         "error_push_server.go",
         "metrics_push_server.go",
         "push_server.go",
@@ -13,6 +14,7 @@ go_library(
         "//pkg/storage",
         "@bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_go_proto",
         "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto",
+        "@com_github_buildbarn_bb_storage//pkg/auth",
         "@com_github_buildbarn_bb_storage//pkg/clock",
         "@com_github_buildbarn_bb_storage//pkg/digest",
         "@com_github_buildbarn_bb_storage//pkg/util",
@@ -25,7 +27,10 @@ go_library(
 
 go_test(
     name = "push_test",
-    srcs = ["push_server_test.go"],
+    srcs = [
+        "authorizing_push_server_test.go",
+        "push_server_test.go",
+    ],
     deps = [
         ":push",
         "//internal/mock",
@@ -35,6 +40,7 @@ go_test(
         "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto",
         "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer",
         "@com_github_buildbarn_bb_storage//pkg/digest",
+        "@com_github_buildbarn_bb_storage//pkg/util",
         "@com_github_golang_mock//gomock",
         "@com_github_stretchr_testify//require",
         "@org_golang_google_grpc//codes",
