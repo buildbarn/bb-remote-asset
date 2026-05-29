@@ -39,7 +39,8 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			}
 			fetcher = fetch.NewHTTPFetcher(
 				&http.Client{Transport: roundTripper},
-				contentAddressableStorage)
+				contentAddressableStorage,
+				backend.Http.GetDownloadDirectoryPath())
 		case *pb.FetcherConfiguration_Error:
 			fetcher = fetch.NewErrorFetcher(backend.Error)
 		case *pb.FetcherConfiguration_RemoteExecution:

@@ -48,6 +48,10 @@ message FetcherConfiguration {
 
     // Optional: Options to be used by the HTTP client.
     buildbarn.configuration.http.client.Configuration client = 3;
+
+    // Optional: directory in which downloads that cannot be streamed to CAS
+    // are buffered in a temporary file on disk instead of in memory.
+    string download_directory_path = 4;
   }
 
   message RemoteExecutionFetcherConfiguration {

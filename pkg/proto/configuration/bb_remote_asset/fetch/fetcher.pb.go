@@ -123,10 +123,11 @@ func (*FetcherConfiguration_Error) isFetcherConfiguration_Backend() {}
 func (*FetcherConfiguration_RemoteExecution) isFetcherConfiguration_Backend() {}
 
 type FetcherConfiguration_HttpFetcherConfiguration struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Client        *client.Configuration  `protobuf:"bytes,3,opt,name=client,proto3" json:"client,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Client                *client.Configuration  `protobuf:"bytes,3,opt,name=client,proto3" json:"client,omitempty"`
+	DownloadDirectoryPath string                 `protobuf:"bytes,4,opt,name=download_directory_path,json=downloadDirectoryPath,proto3" json:"download_directory_path,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *FetcherConfiguration_HttpFetcherConfiguration) Reset() {
@@ -164,6 +165,13 @@ func (x *FetcherConfiguration_HttpFetcherConfiguration) GetClient() *client.Conf
 		return x.Client
 	}
 	return nil
+}
+
+func (x *FetcherConfiguration_HttpFetcherConfiguration) GetDownloadDirectoryPath() string {
+	if x != nil {
+		return x.DownloadDirectoryPath
+	}
+	return ""
 }
 
 type FetcherConfiguration_RemoteExecutionFetcherConfiguration struct {
@@ -214,13 +222,14 @@ var File_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_
 
 const file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDesc = "" +
 	"\n" +
-	"`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x12-buildbarn.configuration.bb_remote_asset.fetch\x1a\x17google/rpc/status.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto\"\xd8\x04\n" +
+	"`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x12-buildbarn.configuration.bb_remote_asset.fetch\x1a\x17google/rpc/status.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto\"\x91\x05\n" +
 	"\x14FetcherConfiguration\x12r\n" +
 	"\x04http\x18\x02 \x01(\v2\\.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfigurationH\x00R\x04http\x12*\n" +
 	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusH\x00R\x05error\x12\x94\x01\n" +
-	"\x10remote_execution\x18\x04 \x01(\v2g.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfigurationH\x00R\x0fremoteExecution\x1ar\n" +
+	"\x10remote_execution\x18\x04 \x01(\v2g.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfigurationH\x00R\x0fremoteExecution\x1a\xaa\x01\n" +
 	"\x18HttpFetcherConfiguration\x12J\n" +
-	"\x06client\x18\x03 \x01(\v22.buildbarn.configuration.http.client.ConfigurationR\x06clientJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\x1a\x83\x01\n" +
+	"\x06client\x18\x03 \x01(\v22.buildbarn.configuration.http.client.ConfigurationR\x06client\x126\n" +
+	"\x17download_directory_path\x18\x04 \x01(\tR\x15downloadDirectoryPathJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\x1a\x83\x01\n" +
 	"#RemoteExecutionFetcherConfiguration\x12\\\n" +
 	"\x10execution_client\x18\x02 \x01(\v21.buildbarn.configuration.grpc.ClientConfigurationR\x0fexecutionClientB\t\n" +
 	"\abackendJ\x04\b\x01\x10\x02BTZRgithub.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetchb\x06proto3"

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -37,16 +38,23 @@ const (
 type httpFetcher struct {
 	httpClient                *http.Client
 	contentAddressableStorage blobstore.BlobAccess
+	downloadDirectory         string
 }
 
 // NewHTTPFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
+//
+// downloadDirectory selects how blobs that can't be streamed directly to the
+// CAS are handled: an empty string buffers them in memory (the default); a
+// non-empty string buffers them in a temporary file in that directory.
 func NewHTTPFetcher(httpClient *http.Client,
 	contentAddressableStorage blobstore.BlobAccess,
+	downloadDirectory string,
 ) Fetcher {
 	return &httpFetcher{
 		httpClient:                httpClient,
 		contentAddressableStorage: contentAddressableStorage,
+		downloadDirectory:         downloadDirectory,
 	}
 }
 
@@ -70,17 +78,21 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	for _, uri := range req.Uris {
-		buffer, digest := hf.downloadBlob(ctx, uri, digestFunction, auth)
+		buffer, digest, checksum := hf.downloadBlob(ctx, uri, digestFunction, checksumFunction, expectedDigest, auth)
 		if _, err = buffer.GetSizeBytes(); err != nil {
 			log.Printf("Error downloading blob with URI %s: %v", uri, err)
 			continue
 		}
 
-		// Check the checksum.sri qualifier, if there's an expected Digest
-		if expectedDigest != "" {
-			if ok, err := validateChecksumSri(buffer, checksumFunction, expectedDigest); !ok {
-				return nil, err
-			}
+		// Validate the checksum.sri qualifier. For buffered downloads checksum is
+		// the hash computed while reading, so a mismatch is caught here. For the
+		// fast path where we store in the CAS, checksum equals the expected hash
+		// (the digest is derived from it), making this a no-op; a mismatch there
+		// instead surfaces from the Put below as bb-storage's
+		// "Buffer has checksum ...".
+		if expectedDigest != "" && checksum != expectedDigest {
+			buffer.Discard()
+			return nil, status.Errorf(codes.Internal, "Fetched content did not match checksum.sri qualifier: Expected %s, Got %s", expectedDigest, checksum)
 		}
 
 		if err = hf.contentAddressableStorage.Put(ctx, digest, buffer); err != nil {
@@ -112,35 +124,13 @@ func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Difference(qualifiers, toRemove)
 }
 
-// validateChecksumSri ensures that the checksum of the passed response matches the expected value.
-func validateChecksumSri(buf buffer.Buffer, checksumFunction bb_digest.Function, expectedDigest string) (bool, error) {
-	sizeBytes, err := buf.GetSizeBytes()
-	if err != nil {
-		return false, err
-	}
-	checksumGenerator := checksumFunction.NewGenerator(sizeBytes)
-	written, err := io.Copy(checksumGenerator, buf.ToReader())
-	if err != nil {
-		return false, err
-	}
-	if written != sizeBytes {
-		return false, status.Errorf(codes.Internal, "Failed to hash entire buffer")
-	}
-
-	checksum := checksumGenerator.Sum().GetProto().GetHash()
-	if checksum != expectedDigest {
-		return false, status.Errorf(codes.Internal, "Fetched content did not match checksum.sri qualifier: Expected %s, Got %s", expectedDigest, checksum)
-	}
-
-	return true, nil
-}
-
-// downloadBlob performs the actual blob download, yielding a buffer of the content and its Digest
-func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunction bb_digest.Function, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest) {
+// downloadBlob downloads the blob at uri, returning a Buffer of the content,
+// its Digest, and the content's checksum.sri when expectedChecksum is set.
+func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunction, checksumFunction bb_digest.Function, expectedChecksum string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest, string) {
 	// Generate the HTTP Request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest, ""
 	}
 	if auth != nil {
 		auth.ApplyHeaders(uri, req)
@@ -150,27 +140,99 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 	resp, err := hf.httpClient.Do(req)
 	if err != nil {
 		log.Printf("Error downloading blob with URI %s: %v", uri, err)
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest, ""
 	}
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("Error downloading blob with URI %s: %v", uri, resp.StatusCode)
-		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest
+		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest, ""
 	}
 
-	// Compute the Digest
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest
+	// If the digest and size are known, and the checksum.sri method uses the
+	// request's digest function (so its hash IS the CAS hash) we can stream
+	// straight to the CAS, validating the content as the Buffer is read.
+	if expectedChecksum != "" && checksumFunction.GetEnumValue() == digestFunction.GetEnumValue() && resp.ContentLength >= 0 {
+		if digest, err := digestFunction.NewDigest(expectedChecksum, resp.ContentLength); err == nil {
+			return buffer.NewCASBufferFromReader(digest, resp.Body, buffer.UserProvided), digest, expectedChecksum
+		}
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")), bb_digest.BadDigest
-	}
-	hasher := digestFunction.NewGenerator(resp.ContentLength)
-	hasher.Write(bodyBytes)
-	digest := hasher.Sum()
 
-	return buffer.NewCASBufferFromByteSlice(digest, bodyBytes, buffer.UserProvided), digest
+	// Otherwise the body must be read in full to compute the digest. Buffer
+	// the content either in memory or on disk, hashing as we go.
+	digestGenerator := digestFunction.NewGenerator(resp.ContentLength)
+	var hashes io.Writer = digestGenerator
+	var checksumGenerator *bb_digest.Generator
+	if expectedChecksum != "" {
+		checksumGenerator = checksumFunction.NewGenerator(resp.ContentLength)
+		hashes = io.MultiWriter(digestGenerator, checksumGenerator)
+	}
+	body := io.TeeReader(resp.Body, hashes)
+
+	var buf buffer.Buffer
+	if hf.downloadDirectory != "" {
+		buf, err = bufferBlobOnDisk(hf.downloadDirectory, body)
+	} else {
+		buf, err = bufferBlobInMemory(body)
+	}
+	if err != nil {
+		resp.Body.Close()
+		return buffer.NewBufferFromError(err), bb_digest.BadDigest, ""
+	}
+	if err := resp.Body.Close(); err != nil {
+		buf.Discard()
+		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")), bb_digest.BadDigest, ""
+	}
+
+	checksum := ""
+	if checksumGenerator != nil {
+		checksum = checksumGenerator.Sum().GetProto().GetHash()
+	}
+	return buf, digestGenerator.Sum(), checksum
+}
+
+// bufferBlobInMemory reads r fully into memory and returns a Buffer over the bytes.
+func bufferBlobInMemory(r io.Reader) (buffer.Buffer, error) {
+	bodyBytes, err := io.ReadAll(r)
+	if err != nil {
+		return nil, util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")
+	}
+	// downloadBlob computes the digest from these same bytes, so bodyBytes
+	// already matches it; a validated buffer avoids re-hashing it on upload.
+	return buffer.NewValidatedBufferFromByteSlice(bodyBytes), nil
+}
+
+// removeOnCloseFile is a temporary file whose Close() also removes it from
+// disk, used to back a Buffer with a download buffered on disk.
+type removeOnCloseFile struct {
+	*os.File
+}
+
+func (f *removeOnCloseFile) Close() error {
+	err := f.File.Close()
+	removeErr := os.Remove(f.File.Name())
+	if err != nil {
+		return err
+	}
+	return removeErr
+}
+
+// bufferBlobOnDisk writes r to a temporary file in dir and returns a Buffer
+// backed by that file.
+func bufferBlobOnDisk(dir string, r io.Reader) (buffer.Buffer, error) {
+	f, err := os.CreateTemp(dir, "bb-remote-asset-download-*")
+	if err != nil {
+		return nil, util.StatusWrapWithCode(err, codes.Internal, "Failed to create temporary file for download")
+	}
+	tmpFile := &removeOnCloseFile{File: f}
+	sizeBytes, err := io.Copy(tmpFile, r)
+	if err != nil {
+		// On success the returned Buffer owns tmpFile; here it doesn't, so
+		// close it to remove the partially-written file.
+		tmpFile.Close()
+		return nil, util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")
+	}
+	// downloadBlob computes the digest from these same bytes, so the file
+	// already matches it; a validated buffer avoids re-hashing it on upload.
+	return buffer.NewValidatedBufferFromReaderAt(tmpFile, sizeBytes), nil
 }
 
 // getChecksumSri parses the checksum.sri qualifier into an expected digest and a digest function to use
