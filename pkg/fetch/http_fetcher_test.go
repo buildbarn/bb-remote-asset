@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
+	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/testutil"
 	"github.com/buildbarn/bb-storage/pkg/util"
@@ -73,6 +75,59 @@ var HashNames = map[remoteexecution.DigestFunction_Value]string{
 // df must match the value used by d
 func digestToChecksumSri(df remoteexecution.DigestFunction_Value, d digest.Digest) string {
 	return fmt.Sprintf("%s-%s", HashNames[df], base64.StdEncoding.EncodeToString(d.GetHashBytes()))
+}
+
+func requireBlobBufferContentsFromChunkReader(t *testing.T, blobBuffer buffer.Buffer) {
+	t.Helper()
+
+	chunkReader := blobBuffer.ToChunkReader(0, 2)
+	defer chunkReader.Close()
+
+	var data []byte
+	for {
+		chunk, err := chunkReader.Read()
+		if err == nil {
+			data = append(data, chunk...)
+			continue
+		}
+		require.ErrorIs(t, err, io.EOF)
+		break
+	}
+	require.Equal(t, TestData, string(data))
+}
+
+func requireBlobBufferContentsIntoWriter(t *testing.T, blobBuffer buffer.Buffer) {
+	t.Helper()
+
+	var data bytes.Buffer
+	require.NoError(t, blobBuffer.IntoWriter(&data))
+	require.Equal(t, TestData, data.String())
+}
+
+func requireNoTemporaryFiles(t *testing.T, tempDir string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(tempDir)
+	require.NoError(t, err)
+	require.Empty(t, entries)
+}
+
+func expectBlobPut(t *testing.T, casBlobAccess *mock.MockBlobAccess, ctx context.Context, blobDigest digest.Digest) *gomock.Call {
+	return casBlobAccess.EXPECT().Put(ctx, blobDigest, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ digest.Digest, blobBuffer buffer.Buffer) error {
+			requireBlobBufferContentsFromChunkReader(t, blobBuffer)
+			return nil
+		},
+	)
+}
+
+func expectBlobPutIntoWriter(t *testing.T, casBlobAccess *mock.MockBlobAccess, ctx context.Context, blobDigest digest.Digest) *gomock.Call {
+	return casBlobAccess.EXPECT().Put(ctx, blobDigest, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ digest.Digest, blobBuffer buffer.Buffer) error {
+			requireBlobBufferContentsIntoWriter(t, blobBuffer)
+			return nil
+		},
+	)
 }
 
 func TestHTTPFetcherFetchBlobSuccessSHA256(t *testing.T) {
@@ -143,6 +198,8 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
 
 	t.Run("Success"+helloDigest.GetDigestFunction().GetEnumValue().String(), func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
 		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:        "200 Success",
@@ -150,15 +207,18 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
 		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
 		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
 	})
 
 	t.Run("SuccessNoContentLength", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
 		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:        "200 Success",
@@ -166,12 +226,13 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 			Body:          body,
 			ContentLength: -1,
 		}, nil)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
 		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
 		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
 	})
 }
 
@@ -201,6 +262,8 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
 
 	t.Run("SuccessNoExpectedDigest", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
 		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		request := &remoteasset.FetchBlobRequest{
 			InstanceName: InstanceName,
@@ -213,15 +276,18 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
 		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
 		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
 	})
 
 	t.Run("SuccessNoExpectedDigestOrContentLength", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
 		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
 		request := &remoteasset.FetchBlobRequest{
 			InstanceName: InstanceName,
@@ -234,12 +300,32 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: -1,
 		}, nil)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
 		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
 		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
+	})
+
+	t.Run("SuccessIntoWriter", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
+		httpDoCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "200 Success",
+			StatusCode:    200,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+		expectBlobPutIntoWriter(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
 	})
 
 	t.Run("UnknownChecksumSriAlgo", func(t *testing.T) {
@@ -293,6 +379,34 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		require.Nil(t, response)
 	})
 
+	t.Run("ChecksumSriMismatch", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
+		emptyDigest := digestFunction.NewGenerator(0).Sum()
+		roundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:        "200 Success",
+				StatusCode:    200,
+				Body:          io.NopCloser(bytes.NewBuffer([]byte(TestData))),
+				ContentLength: 5,
+			}, nil
+		})
+
+		response, err := HTTPFetcher.FetchBlob(ctx, &remoteasset.FetchBlobRequest{
+			InstanceName: InstanceName,
+			Uris:         []string{uri, "www.another.com"},
+			Qualifiers: []*remoteasset.Qualifier{
+				{
+					Name:  "checksum.sri",
+					Value: digestToChecksumSri(remoteexecution.DigestFunction_SHA256, emptyDigest),
+				},
+			},
+		})
+		testutil.RequireEqualStatus(t, status.Error(codes.Internal, "Fetched content did not match checksum.sri qualifier: Expected e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, Got 185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969"), err)
+		require.Nil(t, response)
+		requireNoTemporaryFiles(t, tempDir)
+	})
+
 	t.Run("OneFailOneSuccess", func(t *testing.T) {
 		httpFailCall := roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
 			Status:     "404 Not Found",
@@ -305,7 +419,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil).After(httpFailCall)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpSuccessCall)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpSuccessCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -352,7 +466,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -408,7 +522,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			ContentLength: 5,
 		}, nil)
 
-		casBlobAccess.EXPECT().Put(ctx, helloDigest, gomock.Any()).Return(nil).After(httpDoCall2)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall2)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
