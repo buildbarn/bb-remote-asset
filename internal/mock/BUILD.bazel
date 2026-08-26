@@ -41,6 +41,16 @@ gomock(
 )
 
 gomock(
+    name = "push",
+    out = "push.go",
+    interfaces = [
+        "PushServer",
+    ],
+    library = "@bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_go_proto",
+    package = "mock",
+)
+
+gomock(
     name = "storage",
     out = "storage.go",
     interfaces = ["AssetStore"],
@@ -56,6 +66,7 @@ go_library(
         "blobstore.go",
         "dummy.go",
         "fetcher.go",
+        "push.go",
         "storage.go",
     ],
     importpath = "github.com/buildbarn/bb-remote-asset/internal/mock",

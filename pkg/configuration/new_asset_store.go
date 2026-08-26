@@ -4,7 +4,6 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	asset_configuration "github.com/buildbarn/bb-remote-asset/pkg/storage/blobstore"
-	"github.com/buildbarn/bb-storage/pkg/auth"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/program"
@@ -21,8 +20,6 @@ func NewAssetStoreFromConfiguration(
 	grpcClientFactory grpc.ClientFactory,
 	maximumMessageSizeBytes int,
 	dependenciesGroup program.Group,
-	fetchAuthorizer auth.Authorizer,
-	pushAuthorizer auth.Authorizer,
 ) (storage.AssetStore, error) {
 	var assetStore storage.AssetStore
 	switch backend := configuration.Backend.(type) {
@@ -56,5 +53,5 @@ func NewAssetStoreFromConfiguration(
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Asset Cache configuration is invalid as no supported Asset Cache is defined.")
 	}
-	return storage.NewAuthorizingAssetStore(assetStore, fetchAuthorizer, pushAuthorizer), nil
+	return assetStore, nil
 }
