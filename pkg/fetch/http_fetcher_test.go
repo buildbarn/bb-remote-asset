@@ -531,6 +531,81 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 	})
 }
 
+func TestHTTPFetcherFetchBlobPartialContent(t *testing.T) {
+	ctrl, ctx := gomock.WithContext(context.Background(), t)
+
+	instance := util.Must(digest.NewInstanceName(InstanceName))
+	digestFunction, err := instance.GetDigestFunction(remoteexecution.DigestFunction_SHA256, 0)
+	require.NoError(t, err)
+	digestGenerator := digestFunction.NewGenerator(int64(len(TestData)))
+	digestGenerator.Write([]byte(TestData))
+	helloDigest := digestGenerator.Sum()
+
+	uri := "www.example.com"
+	checksum := &remoteasset.Qualifier{
+		Name:  "checksum.sri",
+		Value: digestToChecksumSri(remoteexecution.DigestFunction_SHA256, helloDigest),
+	}
+
+	casBlobAccess := mock.NewMockBlobAccess(ctrl)
+	roundTripper := mock.NewMockRoundTripper(ctrl)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
+
+	t.Run("AcceptedWithRangeHeader", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: InstanceName,
+			Uris:         []string{uri},
+			Qualifiers: []*remoteasset.Qualifier{
+				checksum,
+				{Name: "http_header:Range", Value: "bytes=0-4"},
+			},
+		}
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
+		httpDoCall := roundTripper.EXPECT().RoundTrip(&headerMatcher{
+			headers: map[string]string{"Range": "bytes=0-4"},
+		}).Return(&http.Response{
+			Status:        "206 Partial Content",
+			StatusCode:    206,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
+	})
+
+	// Without a Range header on the request, 206 means the server sent
+	// something other than what was asked for.
+	t.Run("RejectedWithoutRangeHeader", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: InstanceName,
+			Uris:         []string{uri},
+			Qualifiers:   []*remoteasset.Qualifier{checksum},
+		}
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
+		roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "206 Partial Content",
+			StatusCode:    206,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.Nil(t, response)
+		testutil.RequireEqualStatus(t, status.Error(codes.NotFound,
+			`Unable to download blob from any provided URI: HTTP request failed with status "206 Partial Content"`), err)
+		requireNoTemporaryFiles(t, tempDir)
+	})
+}
+
 func TestHTTPFetcherFetchDirectory(t *testing.T) {
 	ctrl, ctx := gomock.WithContext(context.Background(), t)
 

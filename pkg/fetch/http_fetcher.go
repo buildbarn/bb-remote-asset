@@ -146,7 +146,9 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 		log.Printf("Error downloading blob with URI %s: %v", uri, err)
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest, ""
 	}
-	if resp.StatusCode != http.StatusOK {
+	// A Range header makes 206 the success status for the requested segment.
+	if resp.StatusCode != http.StatusOK &&
+		!(resp.StatusCode == http.StatusPartialContent && req.Header.Get("Range") != "") {
 		log.Printf("Error downloading blob with URI %s: %v", uri, resp.StatusCode)
 		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest, ""
 	}
