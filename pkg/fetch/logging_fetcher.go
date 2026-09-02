@@ -20,8 +20,18 @@ func NewLoggingFetcher(fetcher Fetcher) Fetcher {
 	}
 }
 
+// Qualifier values are client supplied and can carry credentials, so only
+// names are logged.
+func qualifierNames(qualifiers []*remoteasset.Qualifier) []string {
+	names := make([]string, 0, len(qualifiers))
+	for _, q := range qualifiers {
+		names = append(names, q.Name)
+	}
+	return names
+}
+
 func (lf *loggingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlobRequest) (*remoteasset.FetchBlobResponse, error) {
-	log.Printf("Fetching Blob %s with qualifiers %s", req.Uris, req.Qualifiers)
+	log.Printf("Fetching Blob %s with qualifiers %s", req.Uris, qualifierNames(req.Qualifiers))
 	resp, err := lf.fetcher.FetchBlob(ctx, req)
 	if err == nil {
 		log.Printf("FetchBlob completed for %s with status code %d", req.Uris, resp.Status.GetCode())
@@ -32,7 +42,7 @@ func (lf *loggingFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchB
 }
 
 func (lf *loggingFetcher) FetchDirectory(ctx context.Context, req *remoteasset.FetchDirectoryRequest) (*remoteasset.FetchDirectoryResponse, error) {
-	log.Printf("Fetching Directory %s with qualifiers %s", req.Uris, req.Qualifiers)
+	log.Printf("Fetching Directory %s with qualifiers %s", req.Uris, qualifierNames(req.Qualifiers))
 	resp, err := lf.fetcher.FetchDirectory(ctx, req)
 	if err == nil {
 		log.Printf("FetchBlob completed for %s with status code %d", req.Uris, resp.Status.GetCode())
