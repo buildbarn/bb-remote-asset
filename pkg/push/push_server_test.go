@@ -57,7 +57,8 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			require.Equal(t, asset.Asset_BLOB, a.Type)
 			return nil
-		})
+		},
+	)
 	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
@@ -100,7 +101,8 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 			require.True(t, proto.Equal(a.Digest, rootDirectoryDigest))
 			require.Equal(t, asset.Asset_DIRECTORY, a.Type)
 			return nil
-		})
+		},
+	)
 	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 

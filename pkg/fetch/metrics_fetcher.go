@@ -25,7 +25,8 @@ var (
 			Help:      "Size of blobs fetched using the http fetcher, in bytes",
 			Buckets:   prometheus.ExponentialBuckets(1.0, 2.0, 33),
 		},
-		[]string{"name", "operation", "resource_type"})
+		[]string{"name", "operation", "resource_type"},
+	)
 	blobAccessOperationsDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "buildbarn",
@@ -34,7 +35,8 @@ var (
 			Help:      "Amount of time spent per operation on fetching remote assets, in seconds.",
 			Buckets:   util.DecimalExponentialBuckets(-3, 6, 2),
 		},
-		[]string{"name", "operation", "status", "resource_type"})
+		[]string{"name", "operation", "status", "resource_type"},
+	)
 )
 
 type metricsFetcher struct {

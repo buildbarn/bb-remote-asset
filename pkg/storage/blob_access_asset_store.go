@@ -32,7 +32,8 @@ func (rs *blobAccessAssetStore) Get(ctx context.Context, ref *asset.AssetReferen
 
 	data, err := rs.blobAccess.Get(ctx, refDigest).ToProto(
 		&asset.Asset{},
-		rs.maximumMessageSizeBytes)
+		rs.maximumMessageSizeBytes,
+	)
 	if err != nil {
 		return nil, err
 	}

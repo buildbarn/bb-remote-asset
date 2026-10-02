@@ -238,7 +238,8 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 
 	data, err := rs.actionCache.Get(ctx, digest).ToProto(
 		&remoteexecution.ActionResult{},
-		rs.maximumMessageSizeBytes)
+		rs.maximumMessageSizeBytes,
+	)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "could not get action from action cache")
 	}
