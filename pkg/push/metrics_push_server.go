@@ -24,7 +24,8 @@ var (
 			Help:      "Size of blobs being pushed, in bytes.",
 			Buckets:   prometheus.ExponentialBuckets(1.0, 2.0, 33),
 		},
-		[]string{"name", "operation", "resource_type"})
+		[]string{"name", "operation", "resource_type"},
+	)
 	pushServerOperationsDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "buildbarn",
@@ -33,7 +34,8 @@ var (
 			Help:      "Amount of time spent per operation on pushing remote assets, in seconds.",
 			Buckets:   util.DecimalExponentialBuckets(-3, 6, 2),
 		},
-		[]string{"name", "operation", "grpc_code", "resource_type"})
+		[]string{"name", "operation", "grpc_code", "resource_type"},
+	)
 
 	// todo(arlyon): directory size?
 )

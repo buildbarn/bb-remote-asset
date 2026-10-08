@@ -90,7 +90,8 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 				}
 			}
 			return status.Error(codes.Internal, "Blob digest not found")
-		})
+		},
+	)
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
@@ -237,7 +238,8 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 
 	cas.EXPECT().Get(ctx, bbRootDirectoryDigest).Return(
 		buffer.NewProtoBufferFromProto(&remoteexecution.Directory{},
-			buffer.UserProvided))
+			buffer.UserProvided),
+	)
 	cas.EXPECT().Put(ctx, bbTreeDigest, gomock.Any()).Return(nil)
 
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).DoAndReturn(
@@ -253,7 +255,8 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 				}
 			}
 			return status.Error(codes.Internal, "Directory digest not found")
-		})
+		},
+	)
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
@@ -298,7 +301,8 @@ func TestActionCacheAssetStorePutMalformedDirectory(t *testing.T) {
 				Digest: nil,
 			}},
 		},
-			buffer.UserProvided))
+			buffer.UserProvided),
+	)
 
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
@@ -385,12 +389,14 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		buffer.NewProtoBufferFromProto(
 			tree.Children[0],
 			buffer.UserProvided,
-		))
+		),
+	)
 	cas.EXPECT().Get(ctx, bbDigest(sub2Digest)).Return(
 		buffer.NewProtoBufferFromProto(
 			tree.Children[1],
 			buffer.UserProvided,
-		))
+		),
+	)
 
 	ac.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
@@ -405,7 +411,8 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 				}
 			}
 			return status.Error(codes.Internal, "Directory digest not found")
-		})
+		},
+	)
 
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
@@ -455,7 +462,8 @@ func TestActionCacheAssetStorePutMalformedDirectoryAsBlob(t *testing.T) {
 				}
 			}
 			return status.Error(codes.Internal, "Directory digest not found")
-		})
+		},
+	)
 	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
@@ -482,7 +490,8 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 		if assetData.Type == asset.Asset_DIRECTORY {
 			cas.EXPECT().Get(ctx, gomock.Any()).Return(
 				buffer.NewProtoBufferFromProto(&remoteexecution.Directory{},
-					buffer.UserProvided))
+					buffer.UserProvided),
+			)
 		}
 
 		ac.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -492,7 +501,8 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 				require.NoError(t, err)
 				actionResult = m.(*remoteexecution.ActionResult)
 				return nil
-			})
+			},
+		)
 
 		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 
@@ -511,7 +521,8 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 					return buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided)
 				}
 				return buffer.NewBufferFromError(fmt.Errorf("not in AC"))
-			})
+			},
+		)
 
 		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
 

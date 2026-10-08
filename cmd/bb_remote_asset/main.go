@@ -116,7 +116,8 @@ func main() {
 		if assetStore != nil {
 			pushServer := push.NewAssetPushServer(
 				assetStore,
-				allowUpdatesForInstances)
+				allowUpdatesForInstances,
+			)
 			metricsPushServer = push.NewMetricsAssetPushServer(pushServer, clock.SystemClock, "push")
 		} else {
 			metricsPushServer = push.NewErrorPushServer(&protostatus.Status{

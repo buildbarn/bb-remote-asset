@@ -40,7 +40,8 @@ func TestBlobAccessAssetStorePut(t *testing.T) {
 			a := m.(*asset.Asset)
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			return nil
-		})
+		},
+	)
 	assetStore := storage.NewBlobAccessAssetStore(blobAccess, 16*1024*1024)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)

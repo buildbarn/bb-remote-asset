@@ -36,7 +36,8 @@ func NewAssetStoreFromConfiguration(
 		assetBlobAccess, err := blobstore_configuration.NewBlobAccessFromConfiguration(
 			dependenciesGroup,
 			backend.BlobAccess,
-			assetBlobAccessCreator)
+			assetBlobAccessCreator,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +49,9 @@ func NewAssetStoreFromConfiguration(
 			blobstore_configuration.NewACBlobAccessCreator(
 				contentAddressableStorage,
 				grpcClientFactory,
-				maximumMessageSizeBytes))
+				maximumMessageSizeBytes,
+			),
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -1,31 +1,37 @@
 module(name = "com_github_buildbarn_bb_remote_asset")
 
-bazel_dep(name = "bazel_remote_apis", version = "0.0.0")
+bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
+bazel_dep(name = "bazel_remote_apis")
+bazel_dep(name = "cel-spec", version = "0.25.3")
 bazel_dep(name = "com_github_buildbarn_bb_storage")
 bazel_dep(name = "gazelle", version = "0.51.3")
-bazel_dep(name = "googleapis", version = "0.0.0-20260109-6145b5ff")
+bazel_dep(name = "googleapis", version = "0.0.0-20260929-28769825")
 bazel_dep(name = "jsonnet_go", version = "0.22.0")
 bazel_dep(name = "protobuf", version = "35.1")
-bazel_dep(name = "rules_go", version = "0.62.0")
-bazel_dep(name = "rules_jsonnet", version = "0.7.2")
-bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "toolchains_llvm", version = "1.8.0")
-bazel_dep(name = "cel-spec", version = "0.25.1")
 bazel_dep(name = "protoc-gen-validate", version = "1.3.3")
+bazel_dep(name = "rules_go", version = "0.63.0")
+bazel_dep(name = "rules_jsonnet", version = "0.7.2")
+bazel_dep(name = "toolchains_llvm", version = "1.8.0")
 
-git_override(
+# Use `archive_override` instead of `git_override` to avoid depending on local
+# git, and make it fetchable by the remote downloader.
+archive_override(
     module_name = "bazel_remote_apis",
-    commit = "b02e15a6d354e2fb553216132ccec79f3f5b39cb",
-    remote = "https://github.com/bazelbuild/remote-apis.git",
+    integrity = "sha256-XAEBIXXuK5uv9yVvarYDBSWiPFpRAbNTAF+qf+HcuV0=",
+    # https://github.com/bazelbuild/remote-apis/pull/378
+    patches = ["//:patches/bazel_remote_apis/upstream-pr-378.diff"],
+    strip_prefix = "remote-apis-adbf4a27c86fbea4a37637a6cbcacef372406fe7",
+    urls = ["https://github.com/bazelbuild/remote-apis/archive/adbf4a27c86fbea4a37637a6cbcacef372406fe7.tar.gz"],
 )
 
-git_override(
+archive_override(
     module_name = "com_github_buildbarn_bb_storage",
-    commit = "dc342e1799d72bd927ffc0af1f429e7044118b07",
+    integrity = "sha256-ULS5Z21flQ5nW03e9jb2+yFO1PqVFa0m9qA2cCFYVd8=",
     patches = [
         "//:patches/com_buildbarn_bb_storage/workflows.diff",
     ],
-    remote = "https://github.com/buildbarn/bb-storage.git",
+    strip_prefix = "bb-storage-027bd797f1ec7631b49c4f459c06dee995f7e2f9",
+    urls = ["https://github.com/buildbarn/bb-storage/archive/027bd797f1ec7631b49c4f459c06dee995f7e2f9.tar.gz"],
 )
 
 single_version_override(
@@ -45,8 +51,7 @@ go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
-    "cc_mvdan_gofumpt",
-    "com_github_bazelbuild_buildtools",
+    "com_github_bazelbuild_remote_apis",
     "com_github_golang_mock",
     "com_github_prometheus_client_golang",
     "com_github_stretchr_testify",
@@ -89,8 +94,7 @@ go_deps_dev.module_override(
     path = "go.uber.org/mock",
 )
 
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
-llvm.toolchain(
+llvm_dev = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
+llvm_dev.toolchain(
     llvm_version = "17.0.6",
 )
-use_repo(llvm, "llvm_toolchain_llvm")

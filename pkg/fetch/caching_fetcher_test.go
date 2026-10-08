@@ -62,7 +62,8 @@ func TestFetchBlobCaching(t *testing.T) {
 				require.True(t, proto.Equal(a.Digest, blobDigest))
 				require.Equal(t, asset.Asset_BLOB, a.Type)
 				return nil
-			}).After(fetchBlobCall)
+			},
+		).After(fetchBlobCall)
 		response, err := cachingFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -120,7 +121,8 @@ func TestFetchDirectoryCaching(t *testing.T) {
 				require.True(t, proto.Equal(a.Digest, dirDigest))
 				require.Equal(t, asset.Asset_DIRECTORY, a.Type)
 				return nil
-			}).After(fetchDirectoryCall)
+			},
+		).After(fetchDirectoryCall)
 		response, err := cachingFetcher.FetchDirectory(ctx, request)
 		require.Nil(t, err)
 		require.Equal(t, response.Status.Code, int32(codes.OK))

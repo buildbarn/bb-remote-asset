@@ -65,6 +65,6 @@ func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(currentBlocks, newBl
 	return local.NewMutableBlockListGrowthPolicy(currentBlocks), nil
 }
 
-func (bac *assetBlobAccessCreator) NewHierarchicalInstanceNamesLocalBlobAccess(local.KeyLocationMap, local.LocationBlobMap, *sync.RWMutex) (blobstore.BlobAccess, error) {
+func (bac *assetBlobAccessCreator) NewHierarchicalInstanceNamesLocalBlobAccess(keyLocationMap local.KeyLocationMap, blockReferenceResolver local.BlockReferenceResolver, locationBlobMap local.LocationBlobMap, globalLock *sync.RWMutex) (blobstore.BlobAccess, error) {
 	return nil, status.Error(codes.Unimplemented, "NewHierarchicalInstanceNamesLocalBlobAccess unimplemeted for assetBlobAccessCreator")
 }
