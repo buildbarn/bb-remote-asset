@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -270,21 +271,29 @@ func getAuthHeaders(uris []string, qualifiers []*remoteasset.Qualifier) (*AuthHe
 	}
 	// If we have per URL headers, we need to go through and apply them after applying the global headers.
 	for k, v := range perURLQualifiers {
-		parts := strings.Split(k, ":")
-		if len(parts) != 3 {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid http_header_url qualifier: %s", k)
-		}
-		uriIdx, err := strconv.ParseInt(parts[1], 10, 64)
+		uriIdx, header, err := parseHTTPHeaderURLQualifierName(k)
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid http_header_url qualifier: %s: Bad URL index: %v: %v", k, parts[1], err)
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err.Error())
 		}
-		if uriIdx < 0 || uriIdx >= int64(len(uris)) {
+		if uriIdx < 0 || uriIdx >= len(uris) {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid http_header_url qualifier: %s: URL index out of range: %v", k, uriIdx)
 		}
-		header := parts[2]
 		ah.AddHeader(uris[uriIdx], header, v)
-
 	}
 
 	return &ah, nil
+}
+
+// parseHTTPHeaderURLQualifierName parses the URI index and header name
+// encoded in a "http_header_url:<index>:<header>" qualifier name.
+func parseHTTPHeaderURLQualifierName(name string) (int, string, error) {
+	parts := strings.SplitN(name, ":", 3)
+	if len(parts) != 3 {
+		return 0, "", fmt.Errorf("invalid http_header_url qualifier: %s", name)
+	}
+	uriIdx, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid http_header_url qualifier: %s: bad URL index: %v: %w", name, parts[1], err)
+	}
+	return int(uriIdx), parts[2], nil
 }
