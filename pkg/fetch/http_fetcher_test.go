@@ -438,6 +438,62 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 		require.Equal(t, status.Code(err), codes.NotFound)
 	})
 
+	t.Run("PartialContentForRangeRequest", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Setenv("TMPDIR", tempDir)
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: InstanceName,
+			Uris:         []string{uri},
+			Qualifiers: []*remoteasset.Qualifier{
+				{
+					Name:  "http_header:Range",
+					Value: "bytes=0-4",
+				},
+				{
+					Name:  "checksum.sri",
+					Value: digestToChecksumSri(remoteexecution.DigestFunction_SHA256, helloDigest),
+				},
+			},
+		}
+		matcher := &headerMatcher{
+			headers: map[string]string{
+				"Range": "bytes=0-4",
+			},
+		}
+		body := io.NopCloser(bytes.NewBuffer([]byte(TestData)))
+		httpDoCall := roundTripper.EXPECT().RoundTrip(matcher).Return(&http.Response{
+			Status:        "206 Partial Content",
+			StatusCode:    206,
+			Body:          body,
+			ContentLength: 5,
+		}, nil)
+		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+
+		response, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(response.BlobDigest, helloDigest.GetProto()))
+		require.Equal(t, response.Status.Code, int32(codes.OK))
+		requireNoTemporaryFiles(t, tempDir)
+	})
+
+	t.Run("PartialContentWithoutRangeRequest", func(t *testing.T) {
+		request := &remoteasset.FetchBlobRequest{
+			InstanceName: InstanceName,
+			Uris:         []string{uri},
+			Qualifiers:   []*remoteasset.Qualifier{},
+		}
+		roundTripper.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+			Status:        "206 Partial Content",
+			StatusCode:    206,
+			Body:          io.NopCloser(bytes.NewBuffer([]byte(TestData))),
+			ContentLength: 5,
+		}, nil)
+
+		_, err := HTTPFetcher.FetchBlob(ctx, request)
+		require.NotNil(t, err)
+		require.Equal(t, status.Code(err), codes.NotFound)
+	})
+
 	t.Run("WithLegacyAuthHeaders", func(t *testing.T) {
 		request := &remoteasset.FetchBlobRequest{
 			InstanceName: InstanceName,
