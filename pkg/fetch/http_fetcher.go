@@ -146,7 +146,7 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 		log.Printf("Error downloading blob with URI %s: %v", uri, err)
 		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest, ""
 	}
-	if resp.StatusCode != http.StatusOK {
+	if !isSuccessStatus(req, resp) {
 		log.Printf("Error downloading blob with URI %s: %v", uri, resp.StatusCode)
 		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest, ""
 	}
@@ -194,6 +194,14 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 
 	shouldCloseTempFile = false
 	return buffer.NewValidatedBufferFromReaderAt(tempFile, digest.GetSizeBytes()), digest, checksum
+}
+
+// isSuccessStatus checks the response status, accepting a partial response only when a range was requested
+func isSuccessStatus(req *http.Request, resp *http.Response) bool {
+	if resp.StatusCode == http.StatusPartialContent {
+		return req.Header.Get("Range") != ""
+	}
+	return resp.StatusCode == http.StatusOK
 }
 
 // getChecksumSri parses the checksum.sri qualifier into an expected digest and a digest function to use
