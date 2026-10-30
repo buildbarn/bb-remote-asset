@@ -28,9 +28,11 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	authorizer auth.Authorizer,
 ) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
+	var loggedHeaderNames []string
 	if configuration == nil {
 		fetcher = fetch.DefaultFetcher
 	} else {
+		loggedHeaderNames = configuration.LoggedHeaderNames
 		switch backend := configuration.Backend.(type) {
 		case *pb.FetcherConfiguration_Http:
 			roundTripper, err := bb_http.NewRoundTripperFromConfiguration(backend.Http.Client)
@@ -63,6 +65,7 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 		fetch.NewMetricsFetcher(
 			fetch.NewLoggingFetcher(
 				fetch.NewValidatingFetcher(fetcher),
+				loggedHeaderNames,
 			),
 			clock.SystemClock,
 			"fetch",

@@ -31,9 +31,10 @@ type FetcherConfiguration struct {
 	//	*FetcherConfiguration_Http
 	//	*FetcherConfiguration_Error
 	//	*FetcherConfiguration_RemoteExecution
-	Backend       isFetcherConfiguration_Backend `protobuf_oneof:"backend"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Backend           isFetcherConfiguration_Backend `protobuf_oneof:"backend"`
+	LoggedHeaderNames []string                       `protobuf:"bytes,5,rep,name=logged_header_names,json=loggedHeaderNames,proto3" json:"logged_header_names,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *FetcherConfiguration) Reset() {
@@ -96,6 +97,13 @@ func (x *FetcherConfiguration) GetRemoteExecution() *FetcherConfiguration_Remote
 		if x, ok := x.Backend.(*FetcherConfiguration_RemoteExecution); ok {
 			return x.RemoteExecution
 		}
+	}
+	return nil
+}
+
+func (x *FetcherConfiguration) GetLoggedHeaderNames() []string {
+	if x != nil {
+		return x.LoggedHeaderNames
 	}
 	return nil
 }
@@ -214,11 +222,12 @@ var File_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_
 
 const file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDesc = "" +
 	"\n" +
-	"`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x12-buildbarn.configuration.bb_remote_asset.fetch\x1a\x17google/rpc/status.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto\"\xd8\x04\n" +
+	"`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x12-buildbarn.configuration.bb_remote_asset.fetch\x1a\x17google/rpc/status.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto\"\x88\x05\n" +
 	"\x14FetcherConfiguration\x12r\n" +
 	"\x04http\x18\x02 \x01(\v2\\.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfigurationH\x00R\x04http\x12*\n" +
 	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusH\x00R\x05error\x12\x94\x01\n" +
-	"\x10remote_execution\x18\x04 \x01(\v2g.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfigurationH\x00R\x0fremoteExecution\x1ar\n" +
+	"\x10remote_execution\x18\x04 \x01(\v2g.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfigurationH\x00R\x0fremoteExecution\x12.\n" +
+	"\x13logged_header_names\x18\x05 \x03(\tR\x11loggedHeaderNames\x1ar\n" +
 	"\x18HttpFetcherConfiguration\x12J\n" +
 	"\x06client\x18\x03 \x01(\v22.buildbarn.configuration.http.client.ConfigurationR\x06clientJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\x1a\x83\x01\n" +
 	"#RemoteExecutionFetcherConfiguration\x12\\\n" +

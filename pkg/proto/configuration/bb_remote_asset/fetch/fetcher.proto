@@ -38,6 +38,16 @@ message FetcherConfiguration {
     RemoteExecutionFetcherConfiguration remote_execution = 4;
   }
 
+  // Optional: Names of HTTP headers (case-insensitive) whose values
+  // are permitted to be written to the log.
+  //
+  // Qualifiers such as "http_header:<name>", "http_header_url:<idx>:<name>"
+  // and the legacy "bazel.auth_headers" may carry sensitive
+  // values (e.g. "Authorization" tokens).
+  // By default, the values of all such headers are redacted from the log.
+  // Add a header name to this list to permit its value to be logged.
+  repeated string logged_header_names = 5;
+
   message HttpFetcherConfiguration {
     // Formerly used to specify CAS
     reserved 1;
