@@ -4,7 +4,9 @@ import (
 	"sync"
 
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/blobstore/coder"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/local"
 	"github.com/buildbarn/bb-storage/pkg/capabilities"
@@ -19,16 +21,14 @@ import (
 type assetBlobAccessCreator struct {
 	assetBlobReplicatorCreator
 
-	grpcClientFactory       grpc.ClientFactory
-	maximumMessageSizeBytes int
+	grpcClientFactory grpc.ClientFactory
 }
 
 // NewAssetBlobAccessCreator creates a new BlobAccessCreator suitable for creating BlobAccesses
 // used for storage of Assets.
-func NewAssetBlobAccessCreator(terminationGroup program.Group, grpcClientFactory grpc.ClientFactory, maximumMessageSizeBytes int) configuration.BlobAccessCreator {
+func NewAssetBlobAccessCreator(grpcClientFactory grpc.ClientFactory) configuration.BlobAccessCreator[*asset.Asset] {
 	return &assetBlobAccessCreator{
-		grpcClientFactory:       grpcClientFactory,
-		maximumMessageSizeBytes: maximumMessageSizeBytes,
+		grpcClientFactory: grpcClientFactory,
 	}
 }
 
@@ -36,26 +36,19 @@ func (bac *assetBlobAccessCreator) GetBaseDigestKeyFormat() digest.KeyFormat {
 	return digest.KeyWithInstance
 }
 
-func (bac *assetBlobAccessCreator) GetReadBufferFactory() blobstore.ReadBufferFactory {
-	return AssetReadBufferFactory
-}
-
 func (bac *assetBlobAccessCreator) GetStorageTypeName() string {
 	return "asset"
-}
-
-func (bac *assetBlobAccessCreator) NewCustomBlobAccess(terminationGroup program.Group, config *pb.BlobAccessConfiguration, creator configuration.NestedBlobAccessCreator) (configuration.BlobAccessInfo, string, error) {
-	return configuration.BlobAccessInfo{}, "", status.Error(codes.InvalidArgument, "Configuration did not contain a supported storage backend")
-}
-
-func (bac *assetBlobAccessCreator) WrapTopLevelBlobAccess(blobAccess blobstore.BlobAccess) blobstore.BlobAccess {
-	return blobAccess
 }
 
 func (bac *assetBlobAccessCreator) GetDefaultCapabilitiesProvider() capabilities.Provider {
 	return capabilities.NewStaticProvider(&remoteexecution.ServerCapabilities{
 		// TODO: what are the capabilities?
 	})
+}
+
+func (bac *assetBlobAccessCreator) GetBinaryCoder() coder.Coder[*asset.Asset, []byte] {
+	c := coder.NewProtoCoder[asset.Asset]()
+	return coder.JoinCoders(c, coder.NewSHA256SuffixCoder())
 }
 
 func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(currentBlocks, newBlocks int) (local.BlockListGrowthPolicy, error) {
@@ -65,6 +58,14 @@ func (bac *assetBlobAccessCreator) NewBlockListGrowthPolicy(currentBlocks, newBl
 	return local.NewMutableBlockListGrowthPolicy(currentBlocks), nil
 }
 
-func (bac *assetBlobAccessCreator) NewHierarchicalInstanceNamesLocalBlobAccess(keyLocationMap local.KeyLocationMap, blockReferenceResolver local.BlockReferenceResolver, locationBlobMap local.LocationBlobMap, globalLock *sync.RWMutex) (blobstore.BlobAccess, error) {
+func (bac *assetBlobAccessCreator) NewCustomBlobAccess(terminationGroup program.Group, config *pb.BlobAccessConfiguration, nestedCreator configuration.NestedBlobAccessCreator[*asset.Asset]) (configuration.BlobAccessInfo[*asset.Asset], string, error) {
+	return configuration.BlobAccessInfo[*asset.Asset]{}, "", status.Error(codes.InvalidArgument, "Configuration did not contain a supported storage backend")
+}
+
+func (bac *assetBlobAccessCreator) WrapTopLevelBlobAccess(blobAccess blobstore.BlobAccess[*asset.Asset]) blobstore.BlobAccess[*asset.Asset] {
+	return blobAccess
+}
+
+func (bac *assetBlobAccessCreator) NewHierarchicalInstanceNamesLocalBlobAccess(keyLocationMap local.KeyLocationMap, blockReferenceResolver local.BlockReferenceResolver, locationBlobMap local.LocationBlobMap, globalLock *sync.RWMutex, capabilitiesProvider capabilities.Provider) (blobstore.BlobAccess[*asset.Asset], error) {
 	return nil, status.Error(codes.Unimplemented, "NewHierarchicalInstanceNamesLocalBlobAccess unimplemeted for assetBlobAccessCreator")
 }

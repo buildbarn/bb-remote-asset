@@ -1,13 +1,13 @@
 module github.com/buildbarn/bb-remote-asset
 
-go 1.27.1
+go 1.27.3
 
 // rules_go doesn't support gomock's package mode.
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 require (
-	github.com/bazelbuild/remote-apis v0.0.0-20260922155111-adbf4a27c86f
-	github.com/buildbarn/bb-storage v0.0.0-20261002053832-027bd797f1ec
+	github.com/bazelbuild/remote-apis v0.0.0-20260908115904-76ddd98e1f92
+	github.com/buildbarn/bb-storage v0.0.0-20261102091443-ca3d8b49a5af
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.12.1
@@ -50,6 +50,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.1 // indirect
 	github.com/aws/smithy-go v1.28.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/buildbarn/go-cdc v0.0.10 // indirect
 	github.com/buildbarn/go-sha256tree v0.0.0-20250310211320-0f70f20e855b // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
@@ -111,7 +112,6 @@ require (
 	google.golang.org/api v0.300.0 // indirect
 	google.golang.org/genproto v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
-	google.golang.org/genproto/googleapis/bytestream v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/grpc/security/advancedtls v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )

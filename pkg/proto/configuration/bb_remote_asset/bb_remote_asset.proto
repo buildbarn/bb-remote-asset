@@ -8,7 +8,6 @@ import "github.com/buildbarn/bb-storage/pkg/proto/configuration/auth/auth.proto"
 import "github.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore/blobstore.proto";
 import "github.com/buildbarn/bb-storage/pkg/proto/configuration/global/global.proto";
 import "github.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto";
-import "github.com/buildbarn/bb-storage/pkg/proto/configuration/zstd/zstd.proto";
 
 option go_package = "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset";
 
@@ -25,7 +24,7 @@ message ApplicationConfiguration {
 
   // The content addressable storage in which the data of the assets
   // are stored
-  buildbarn.configuration.blobstore.BlobAccessConfiguration
+  buildbarn.configuration.blobstore.ContentAddressableStorageConfiguration
       content_addressable_storage = 4;
 
   // Maximum Protobuf message size to unmarshal.
@@ -55,7 +54,7 @@ message ApplicationConfiguration {
 
   // ZSTD encoder/decoder pool configuration. When set, creates a
   // process-wide pool shared by all gRPC CAS clients.
-  buildbarn.configuration.zstd.PoolConfiguration zstd_pool = 12;
+  reserved 12;
 }
 
 message AssetCacheConfiguration {

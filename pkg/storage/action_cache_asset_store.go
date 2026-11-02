@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -8,7 +9,9 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
+	"github.com/buildbarn/bb-storage/pkg/capabilities"
+	bb_cas "github.com/buildbarn/bb-storage/pkg/cas"
+	"github.com/buildbarn/bb-storage/pkg/cas/reader"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"google.golang.org/grpc/codes"
@@ -33,20 +36,28 @@ import (
 // means we can use the existing Action Cache implementation to e.g. ensure
 // referential integrity between the references and the CAS.
 type actionCacheAssetStore struct {
-	actionCache               blobstore.BlobAccess
-	contentAddressableStorage blobstore.BlobAccess
-	maximumMessageSizeBytes   int
-	platform                  *remoteexecution.Platform
+	actionCache          blobstore.BlobAccess[*remoteexecution.ActionResult]
+	protoPutter          bb_cas.ReaderPutter
+	directoryReader      reader.Reader[*remoteexecution.Directory]
+	cdcParametersFetcher capabilities.CDCParametersFetcher
+	platform             *remoteexecution.Platform
 }
 
 // NewActionCacheAssetStore creates a new AssetStore which stores it's
 // references as ActionResults in the Action Cache.
-func NewActionCacheAssetStore(actionCache, contentAddressableStorage blobstore.BlobAccess, maximumMessageSizeBytes int, platform *remoteexecution.Platform) AssetStore {
+func NewActionCacheAssetStore(
+	actionCache blobstore.BlobAccess[*remoteexecution.ActionResult],
+	protoPutter bb_cas.ReaderPutter,
+	directoryReader reader.Reader[*remoteexecution.Directory],
+	cdcParametersFetcher capabilities.CDCParametersFetcher,
+	platform *remoteexecution.Platform,
+) AssetStore {
 	return &actionCacheAssetStore{
-		actionCache:               actionCache,
-		contentAddressableStorage: contentAddressableStorage,
-		maximumMessageSizeBytes:   maximumMessageSizeBytes,
-		platform:                  platform,
+		actionCache:          actionCache,
+		protoPutter:          protoPutter,
+		directoryReader:      directoryReader,
+		cdcParametersFetcher: cdcParametersFetcher,
+		platform:             platform,
 	}
 }
 
@@ -62,7 +73,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 	//    This is used to associate the Qualifiers with the Action, which
 	//    must all match, but not the URIs, which can match individually.
 	qr := NewAssetReference(nil, ref.Qualifiers)
-	_, qrDigest, err := ProtoSerialise(qr, digestFunction)
+	_, qrDigest, err := SerialiseProto(qr, digestFunction)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -75,7 +86,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 			Digest: qrDigest.GetProto(),
 		}},
 	}
-	_, directoryDigest, err := ProtoSerialise(directory, digestFunction)
+	_, directoryDigest, err := SerialiseProto(directory, digestFunction)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -92,7 +103,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 			OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
 			Platform:              rs.platform,
 		}
-		_, commandDigest, err := ProtoSerialise(command, digestFunction)
+		_, commandDigest, err := SerialiseProto(command, digestFunction)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -108,7 +119,7 @@ func (rs *actionCacheAssetStore) assetReferenceToAction(ref *asset.AssetReferenc
 		if command.Platform == nil {
 			command.Platform = rs.platform
 		}
-		_, commandDigest, err := ProtoSerialise(command, digestFunction)
+		_, commandDigest, err := SerialiseProto(command, digestFunction)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -148,7 +159,7 @@ func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *
 		if err != nil {
 			return nil, err
 		}
-		d, err := rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
+		directory, err := rs.directoryReader.Read(ctx, digest)
 		if err != nil {
 			// Users will hit this if they upload an digest referencing an
 			// arbitary Blob in `PushDirectory` or a digest that does not
@@ -158,7 +169,6 @@ func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *
 				"digest in directory asset does not reference a Directory",
 			)
 		}
-		directory := d.(*remoteexecution.Directory)
 
 		// 2. Construct a Tree from the Directory and upload it to the CAS
 		tree, err := rs.directoryToTree(ctx, directory, digestFunction)
@@ -166,12 +176,11 @@ func (rs *actionCacheAssetStore) assetToActionResult(ctx context.Context, data *
 			return nil, status.Errorf(codes.InvalidArgument, "Failed to convert directory to tree (one of the subdirs is not in the CAS?): %v", err)
 		}
 
-		treePb, treeDigest, err := ProtoSerialise(tree, digestFunction)
+		treePb, treeDigest, err := SerialiseProto(tree, digestFunction)
 		if err != nil {
 			return nil, err
 		}
-		err = rs.contentAddressableStorage.Put(ctx, treeDigest, treePb)
-		if err != nil {
+		if err := rs.putObject(ctx, treePb, treeDigest); err != nil {
 			return nil, err
 		}
 
@@ -234,16 +243,16 @@ func (rs *actionCacheAssetStore) Get(ctx context.Context, ref *asset.AssetRefere
 	if err != nil {
 		return nil, err
 	}
-	_, digest, err := ProtoSerialise(action, digestFunction)
+	_, actionDigest, err := SerialiseProto(action, digestFunction)
+	if err != nil {
+		return nil, err
+	}
 
-	data, err := rs.actionCache.Get(ctx, digest).ToProto(
-		&remoteexecution.ActionResult{},
-		rs.maximumMessageSizeBytes,
-	)
+	actionResult, err := rs.actionCache.Get(ctx, actionDigest)
 	if err != nil {
 		return nil, util.StatusWrapf(err, "could not get action from action cache")
 	}
-	return rs.actionResultToAsset(data.(*remoteexecution.ActionResult))
+	return rs.actionResultToAsset(actionResult)
 }
 
 func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetReference, data *asset.Asset, digestFunction digest.Function) error {
@@ -254,23 +263,21 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	}
 
 	// Upload the Action
-	actionPb, actionDigest, err := ProtoSerialise(action, digestFunction)
+	actionPb, actionDigest, err := SerialiseProto(action, digestFunction)
 	if err != nil {
 		return err
 	}
-	err = rs.contentAddressableStorage.Put(ctx, actionDigest, actionPb)
-	if err != nil {
+	if err := rs.putObject(ctx, actionPb, actionDigest); err != nil {
 		return err
 	}
 
 	// Upload extra things required for referential integrity
 	for _, obj := range extraObjs {
-		buf, digest, err := ProtoSerialise(obj, digestFunction)
+		objPb, objDigest, err := SerialiseProto(obj, digestFunction)
 		if err != nil {
 			return err
 		}
-		err = rs.contentAddressableStorage.Put(ctx, digest, buf)
-		if err != nil {
+		if err := rs.putObject(ctx, objPb, objDigest); err != nil {
 			return err
 		}
 	}
@@ -282,7 +289,16 @@ func (rs *actionCacheAssetStore) Put(ctx context.Context, ref *asset.AssetRefere
 	}
 
 	// Upload to the ActionCache
-	return rs.actionCache.Put(ctx, actionDigest, buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided))
+	return rs.actionCache.Put(ctx, actionDigest, actionResult)
+}
+
+// putObject stores an object in the CAS at the given digest.
+func (rs *actionCacheAssetStore) putObject(ctx context.Context, data []byte, d digest.Digest) error {
+	params, err := rs.cdcParametersFetcher.FetchCDCParameters(ctx, d.GetInstanceName())
+	if err != nil {
+		return err
+	}
+	return rs.protoPutter.PutReaderAt(ctx, d, bytes.NewReader(data), params)
 }
 
 // Utility method to convert a Directory Proto to a Tree Proto
@@ -309,12 +325,12 @@ func (rs *actionCacheAssetStore) directoryNodeToDirectories(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	directory, err := rs.contentAddressableStorage.Get(ctx, digest).ToProto(&remoteexecution.Directory{}, rs.maximumMessageSizeBytes)
+	directory, err := rs.directoryReader.Read(ctx, digest)
 	if err != nil {
 		return nil, err
 	}
-	directories := []*remoteexecution.Directory{directory.(*remoteexecution.Directory)}
-	for _, node := range directory.(*remoteexecution.Directory).Directories {
+	directories := []*remoteexecution.Directory{directory}
+	for _, node := range directory.Directories {
 		children, err := rs.directoryNodeToDirectories(ctx, digestFunction, node)
 		if err != nil {
 			return nil, err

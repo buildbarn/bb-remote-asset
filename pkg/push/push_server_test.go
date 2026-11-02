@@ -10,7 +10,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -45,21 +44,18 @@ func TestPushServerPushBlobSuccess(t *testing.T) {
 		BlobDigest:   blobDigest,
 		Qualifiers:   qualifiers,
 	}
-	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, qualifiers), digestFunction)
+	_, refDigest, err := storage.SerialiseProto(storage.NewAssetReference([]string{uri}, qualifiers), digestFunction)
 	require.NoError(t, err)
 
-	backend := mock.NewMockBlobAccess(ctrl)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
 	backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&asset.Asset{}, 1000)
-			require.NoError(t, err)
-			a := m.(*asset.Asset)
+		func(ctx context.Context, digest digest.Digest, a *asset.Asset) error {
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			require.Equal(t, asset.Asset_BLOB, a.Type)
 			return nil
 		},
 	)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	response, err := pushServer.PushBlob(ctx, request)
@@ -89,21 +85,18 @@ func TestPushServerPushDirectorySuccess(t *testing.T) {
 		RootDirectoryDigest: rootDirectoryDigest,
 		Qualifiers:          qualifiers,
 	}
-	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, qualifiers), digestFunction)
+	_, refDigest, err := storage.SerialiseProto(storage.NewAssetReference([]string{uri}, qualifiers), digestFunction)
 	require.NoError(t, err)
 
-	backend := mock.NewMockBlobAccess(ctrl)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
 	backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&asset.Asset{}, 1000)
-			require.NoError(t, err)
-			a := m.(*asset.Asset)
+		func(ctx context.Context, digest digest.Digest, a *asset.Asset) error {
 			require.True(t, proto.Equal(a.Digest, rootDirectoryDigest))
 			require.Equal(t, asset.Asset_DIRECTORY, a.Type)
 			return nil
 		},
 	)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	response, err := pushServer.PushDirectory(ctx, request)
@@ -124,8 +117,8 @@ func TestPushServerInvalidArgumentFailure(t *testing.T) {
 		InstanceName: "",
 	}
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	_, err = pushServer.PushBlob(ctx, blobRequest)
@@ -157,8 +150,8 @@ func TestPushServerBadInstanceName(t *testing.T) {
 		},
 	}
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	pushServer := push.NewAssetPushServer(assetStore, map[digest.InstanceName]bool{instanceName: true})
 
 	_, err = pushServer.PushBlob(ctx, blobRequest)

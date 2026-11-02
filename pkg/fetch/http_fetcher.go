@@ -12,15 +12,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/buildbarn/bb-storage/pkg/blobstore"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"github.com/buildbarn/bb-storage/pkg/capabilities"
+	bb_cas "github.com/buildbarn/bb-storage/pkg/cas"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
-	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -37,8 +37,9 @@ const (
 )
 
 type httpFetcher struct {
-	httpClient                *http.Client
-	contentAddressableStorage blobstore.BlobAccess
+	httpClient           *http.Client
+	readerPutter         bb_cas.ReaderPutter
+	cdcParametersFetcher capabilities.CDCParametersFetcher
 }
 
 type temporaryFile struct {
@@ -60,12 +61,11 @@ func (f *temporaryFile) Close() error {
 
 // NewHTTPFetcher creates a remoteasset FetchServer compatible service for handling requests which involve downloading
 // assets over HTTP and storing them into a CAS.
-func NewHTTPFetcher(httpClient *http.Client,
-	contentAddressableStorage blobstore.BlobAccess,
-) Fetcher {
+func NewHTTPFetcher(httpClient *http.Client, readerPutter bb_cas.ReaderPutter, cdcParametersFetcher capabilities.CDCParametersFetcher) Fetcher {
 	return &httpFetcher{
-		httpClient:                httpClient,
-		contentAddressableStorage: contentAddressableStorage,
+		httpClient:           httpClient,
+		readerPutter:         readerPutter,
+		cdcParametersFetcher: cdcParametersFetcher,
 	}
 }
 
@@ -89,26 +89,23 @@ func (hf *httpFetcher) FetchBlob(ctx context.Context, req *remoteasset.FetchBlob
 	}
 
 	for _, uri := range req.Uris {
-		buffer, digest, checksum := hf.downloadBlob(ctx, uri, digestFunction, checksumFunction, expectedDigest, auth)
-		if _, err = buffer.GetSizeBytes(); err != nil {
+		var blobDigest bb_digest.Digest
+		var checksum string
+		blobDigest, checksum, err = hf.downloadBlob(ctx, uri, digestFunction, checksumFunction, expectedDigest, auth)
+		if err != nil {
 			log.Printf("Error downloading blob with URI %s: %v", uri, err)
 			continue
 		}
 
 		if expectedDigest != "" && checksum != expectedDigest {
-			buffer.Discard()
 			return nil, status.Errorf(codes.Internal, "Fetched content did not match checksum.sri qualifier: Expected %s, Got %s", expectedDigest, checksum)
 		}
 
-		if err = hf.contentAddressableStorage.Put(ctx, digest, buffer); err != nil {
-			log.Printf("Error downloading blob with URI %s: %v", uri, err)
-			return nil, util.StatusWrapWithCode(err, codes.Internal, "Failed to place blob into CAS")
-		}
 		return &remoteasset.FetchBlobResponse{
 			Status:     status.New(codes.OK, "Blob fetched successfully!").Proto(),
 			Uri:        uri,
 			Qualifiers: req.Qualifiers,
-			BlobDigest: digest.GetProto(),
+			BlobDigest: blobDigest.GetProto(),
 		}, nil
 	}
 
@@ -129,12 +126,13 @@ func (hf *httpFetcher) CheckQualifiers(qualifiers qualifier.Set) qualifier.Set {
 	return qualifier.Difference(qualifiers, toRemove)
 }
 
-// downloadBlob performs the actual blob download, yielding a buffer of the content, its Digest, and checksum.
-func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunction, checksumFunction bb_digest.Function, expectedDigest string, auth *AuthHeaders) (buffer.Buffer, bb_digest.Digest, string) {
+// downloadBlob performs the actual blob download, storing the contents
+// into the CAS and returning its digest and checksum.
+func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunction, checksumFunction bb_digest.Function, expectedDigest string, auth *AuthHeaders) (bb_digest.Digest, string, error) {
 	// Generate the HTTP Request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")), bb_digest.BadDigest, ""
+		return bb_digest.BadDigest, "", util.StatusWrapWithCode(err, codes.Internal, "Failed to create HTTP request")
 	}
 	if auth != nil {
 		auth.ApplyHeaders(uri, req)
@@ -144,11 +142,11 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 	resp, err := hf.httpClient.Do(req)
 	if err != nil {
 		log.Printf("Error downloading blob with URI %s: %v", uri, err)
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")), bb_digest.BadDigest, ""
+		return bb_digest.BadDigest, "", util.StatusWrapWithCode(err, codes.Internal, "HTTP request failed")
 	}
 	if !isSuccessStatus(req, resp) {
 		log.Printf("Error downloading blob with URI %s: %v", uri, resp.StatusCode)
-		return buffer.NewBufferFromError(status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)), bb_digest.BadDigest, ""
+		return bb_digest.BadDigest, "", status.Errorf(codes.Internal, "HTTP request failed with status %#v", resp.Status)
 	}
 	defer func() {
 		if resp.Body != nil {
@@ -158,15 +156,12 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 
 	tempFileHandle, err := os.CreateTemp("", "bb-remote-asset-*")
 	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to create temporary file")), bb_digest.BadDigest, ""
+		return bb_digest.BadDigest, "", util.StatusWrapWithCode(err, codes.Internal, "Failed to create temporary file")
 	}
 	tempFile := &temporaryFile{File: tempFileHandle}
-	shouldCloseTempFile := true
 	defer func() {
-		if shouldCloseTempFile {
-			if err := tempFile.Close(); err != nil {
-				log.Printf("Failed to close temporary file %s: %v", tempFile.Name(), err)
-			}
+		if err := tempFile.Close(); err != nil {
+			log.Printf("Failed to close temporary file %s: %v", tempFile.Name(), err)
 		}
 	}()
 
@@ -179,21 +174,29 @@ func (hf *httpFetcher) downloadBlob(ctx context.Context, uri string, digestFunct
 		writers = append(writers, checksumGenerator)
 	}
 	if _, err := io.Copy(io.MultiWriter(writers...), resp.Body); err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")), bb_digest.BadDigest, ""
+		return bb_digest.BadDigest, "", util.StatusWrapWithCode(err, codes.Internal, "Failed to read response body")
 	}
 	err = resp.Body.Close()
 	if err != nil {
-		return buffer.NewBufferFromError(util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")), bb_digest.BadDigest, ""
+		return bb_digest.BadDigest, "", util.StatusWrapWithCode(err, codes.Internal, "Failed to close response body")
 	}
 	resp.Body = nil
-	digest := hasher.Sum()
+	blobDigest := hasher.Sum()
 	checksum := ""
 	if expectedDigest != "" {
 		checksum = checksumGenerator.Sum().GetProto().GetHash()
 	}
 
-	shouldCloseTempFile = false
-	return buffer.NewValidatedBufferFromReaderAt(tempFile, digest.GetSizeBytes()), digest, checksum
+	// Store the downloaded blob in the CAS.
+	params, err := hf.cdcParametersFetcher.FetchCDCParameters(ctx, blobDigest.GetInstanceName())
+	if err != nil {
+		return bb_digest.BadDigest, "", err
+	}
+	if err := hf.readerPutter.PutReaderAt(ctx, blobDigest, tempFile, params); err != nil {
+		return bb_digest.BadDigest, "", util.StatusWrapWithCode(err, codes.Internal, "Failed to place blob into CAS")
+	}
+
+	return blobDigest, checksum, nil
 }
 
 // isSuccessStatus checks the response status, accepting a partial response only when a range was requested

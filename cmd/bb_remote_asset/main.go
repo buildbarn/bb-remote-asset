@@ -3,36 +3,28 @@ package main
 import (
 	"context"
 	"os"
-	"time"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-remote-asset/pkg/configuration"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/push"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	auth_configuration "github.com/buildbarn/bb-storage/pkg/auth/configuration"
 	blobstore_configuration "github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
+	bb_cas "github.com/buildbarn/bb-storage/pkg/cas"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/global"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/program"
 	"github.com/buildbarn/bb-storage/pkg/util"
-	bb_zstd "github.com/buildbarn/bb-storage/pkg/zstd"
 	protostatus "google.golang.org/genproto/googleapis/rpc/status"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-// timestampDelta is returned by the timestamp_proto_delta, returning a
-// timestamp and a duration relative to a previous timestamp value. It
-// can be used to display split times.
-type timestampDelta struct {
-	Time                 time.Time
-	DurationFromPrevious time.Duration
-}
 
 func main() {
 	program.RunMain(func(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
@@ -59,28 +51,47 @@ func main() {
 			return util.StatusWrap(err, "Failed to create Push Authorizer from Configuration")
 		}
 
-		zstdPool := bb_zstd.NewPoolFromConfiguration(config.ZstdPool)
-
-		// Initialize CAS storage access
-		contentAddressableStorageInfo, err := blobstore_configuration.NewBlobAccessFromConfiguration(
+		// Initialize CAS storage access.
+		casInfo, err := blobstore_configuration.NewCASFromConfiguration(
 			dependenciesGroup,
 			config.ContentAddressableStorage,
-			blobstore_configuration.NewCASBlobAccessCreator(
-				grpcClientFactory,
-				int(config.MaximumMessageSizeBytes),
-				zstdPool,
-			),
+			grpcClientFactory,
+			int(config.MaximumMessageSizeBytes),
 		)
 		if err != nil {
-			return util.StatusWrap(err, "Failed to create CAS blob access")
+			return util.StatusWrap(err, "Failed to create CAS")
 		}
+		readerPutter := bb_cas.NewReaderPutter(casInfo.ChunkStorage, casInfo.ChunkMappingStorage)
+		directoryReader := bb_cas.NewMessageReader[remoteexecution.Directory](
+			casInfo.ReadInfo,
+			int(config.MaximumMessageSizeBytes),
+		)
+		treeReader := bb_cas.NewStorageBackedStreamReader(casInfo.ReadInfo)
+
 		var assetStore storage.AssetStore
 		if config.AssetCache != nil {
+			var actionCache blobstore_configuration.BlobAccessInfo[*remoteexecution.ActionResult]
+			if config.AssetCache.GetActionCache() != nil {
+				actionCache, err = blobstore_configuration.NewBlobAccessFromConfiguration(
+					dependenciesGroup,
+					config.AssetCache.GetActionCache(),
+					blobstore_configuration.NewACBlobAccessCreator(
+						&casInfo,
+						grpcClientFactory,
+						int(config.MaximumMessageSizeBytes),
+					),
+				)
+				if err != nil {
+					return util.StatusWrap(err, "Failed to create Action Cache")
+				}
+			}
 			assetStore, err = configuration.NewAssetStoreFromConfiguration(
 				config.AssetCache,
-				&contentAddressableStorageInfo,
+				actionCache,
+				readerPutter,
+				directoryReader,
+				casInfo.CDCParametersFetcher,
 				grpcClientFactory,
-				int(config.MaximumMessageSizeBytes),
 				dependenciesGroup,
 				fetchAuthorizer,
 				pushAuthorizer,
@@ -102,10 +113,11 @@ func main() {
 		fetchServer, err := configuration.NewFetcherFromConfiguration(
 			config.Fetcher,
 			assetStore,
-			contentAddressableStorageInfo.BlobAccess,
+			readerPutter,
+			treeReader,
+			casInfo.CDCParametersFetcher,
 			grpcClientFactory,
 			dependenciesGroup,
-			int(config.MaximumMessageSizeBytes),
 			fetchAuthorizer,
 		)
 		if err != nil {

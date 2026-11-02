@@ -1,7 +1,9 @@
 package fetch
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"log"
 
 	remoteasset "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1"
@@ -9,29 +11,58 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/capabilities"
+	bb_cas "github.com/buildbarn/bb-storage/pkg/cas"
 	"github.com/buildbarn/bb-storage/pkg/digest"
+	"github.com/buildbarn/bb-storage/pkg/util"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type remoteExecutionFetcher struct {
-	contentAddressableStorage blobstore.BlobAccess
-	executionClient           remoteexecution.ExecutionClient
-	maximumMessageSizeBytes   int
+	readerPutter         bb_cas.ReaderPutter
+	treeReader           bb_cas.StreamReader
+	cdcParametersFetcher capabilities.CDCParametersFetcher
+	executionClient      remoteexecution.ExecutionClient
 }
 
 // NewRemoteExecutionFetcher creates a new Fetcher that is capable of
 // itself fetching resources from other places (as defined in the
 // qualifier_translator).
-func NewRemoteExecutionFetcher(contentAddressableStorage blobstore.BlobAccess, client grpc.ClientConnInterface, maximumMessageSizeBytes int) Fetcher {
+func NewRemoteExecutionFetcher(
+	readerPutter bb_cas.ReaderPutter,
+	treeReader bb_cas.StreamReader,
+	cdcParametersFetcher capabilities.CDCParametersFetcher,
+	client grpc.ClientConnInterface,
+) Fetcher {
 	return &remoteExecutionFetcher{
-		contentAddressableStorage: contentAddressableStorage,
-		executionClient:           remoteexecution.NewExecutionClient(client),
-		maximumMessageSizeBytes:   maximumMessageSizeBytes,
+		readerPutter:         readerPutter,
+		treeReader:           treeReader,
+		cdcParametersFetcher: cdcParametersFetcher,
+		executionClient:      remoteexecution.NewExecutionClient(client),
 	}
+}
+
+// putProto serialises and stores a message in the CAS, returning its
+// digest.
+func (rf *remoteExecutionFetcher) putProto(ctx context.Context, message proto.Message, digestFunction digest.Function) (digest.Digest, error) {
+	data, d, err := storage.SerialiseProto(message, digestFunction)
+	if err != nil {
+		return digest.BadDigest, err
+	}
+	params, err := rf.cdcParametersFetcher.FetchCDCParameters(ctx, d.GetInstanceName())
+	if err != nil {
+		return digest.BadDigest, err
+	}
+	if err := rf.readerPutter.PutReaderAt(ctx, d, bytes.NewReader(data), params); err != nil {
+		return digest.BadDigest, err
+	}
+	return d, nil
 }
 
 // fetchCommon converts a FetchBlobRequest into an Action, runs the Action using
@@ -49,7 +80,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 	for _, uri := range req.Uris {
 		// Convert URI into an Action (and Command) based on the qualifiers set
 		command := commandGenerator(uri)
-		commandPb, commandDigest, err := storage.ProtoSerialise(command, digestFunction)
+		commandDigest, err := rf.putProto(ctx, command, digestFunction)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -57,17 +88,7 @@ func (rf *remoteExecutionFetcher) fetchCommon(ctx context.Context, req *remoteas
 			CommandDigest:   commandDigest.GetProto(),
 			InputRootDigest: storage.EmptyDigest(digestFunction).GetProto(),
 		}
-		actionPb, actionDigest, err := storage.ProtoSerialise(action, digestFunction)
-		if err != nil {
-			return nil, "", "", err
-		}
-
-		// Upload Action and Command to the CAS
-		err = rf.contentAddressableStorage.Put(ctx, actionDigest, actionPb)
-		if err != nil {
-			return nil, "", "", err
-		}
-		err = rf.contentAddressableStorage.Put(ctx, commandDigest, commandPb)
+		actionDigest, err := rf.putProto(ctx, action, digestFunction)
 		if err != nil {
 			return nil, "", "", err
 		}
@@ -203,28 +224,51 @@ func (rf *remoteExecutionFetcher) FetchDirectory(ctx context.Context, req *remot
 	if err != nil {
 		return nil, err
 	}
-	tree, err := rf.contentAddressableStorage.Get(ctx, treeDigest).ToProto(&remoteexecution.Tree{}, rf.maximumMessageSizeBytes)
+	r, err := rf.treeReader.ReadStream(ctx, treeDigest)
 	if err != nil {
 		return nil, err
 	}
-	root := tree.(*remoteexecution.Tree).Root
+
+	var root *remoteexecution.Directory
+	var children []*remoteexecution.Directory
+	seenRoot := false
+	if err := util.VisitProtoBytesFields(r, func(fieldNumber protowire.Number, offsetBytes, sizeBytes int64, fieldReader io.Reader) error {
+		data, err := io.ReadAll(fieldReader)
+		if err != nil {
+			return err
+		}
+		switch fieldNumber {
+		case blobstore.TreeRootFieldNumber:
+			if seenRoot {
+				return status.Error(codes.InvalidArgument, "Tree contains multiple root directories")
+			}
+			root = &remoteexecution.Directory{}
+			if err := proto.Unmarshal(data, root); err != nil {
+				return util.StatusWrap(err, "Failed to parse tree root directory")
+			}
+			seenRoot = true
+		case blobstore.TreeChildrenFieldNumber:
+			child := &remoteexecution.Directory{}
+			if err := proto.Unmarshal(data, child); err != nil {
+				return util.StatusWrap(err, "Failed to parse tree child directory")
+			}
+			children = append(children, child)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if root == nil {
+		return nil, status.Error(codes.InvalidArgument, "Tree does not contain a root directory")
+	}
 
 	// Ensure the tree's Directory protos are in the CAS
-	rootPb, rootDigest, err := storage.ProtoSerialise(root, digestFunction)
+	rootDigest, err := rf.putProto(ctx, root, digestFunction)
 	if err != nil {
 		return nil, err
 	}
-	err = rf.contentAddressableStorage.Put(ctx, rootDigest, rootPb)
-	if err != nil {
-		return nil, err
-	}
-	for _, child := range tree.(*remoteexecution.Tree).Children {
-		childPb, childDigest, err := storage.ProtoSerialise(child, digestFunction)
-		if err != nil {
-			return nil, err
-		}
-		err = rf.contentAddressableStorage.Put(ctx, childDigest, childPb)
-		if err != nil {
+	for _, child := range children {
+		if _, err := rf.putProto(ctx, child, digestFunction); err != nil {
 			return nil, err
 		}
 	}

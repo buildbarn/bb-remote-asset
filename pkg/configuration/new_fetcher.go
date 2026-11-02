@@ -7,7 +7,8 @@ import (
 	pb "github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
 	"github.com/buildbarn/bb-storage/pkg/auth"
-	"github.com/buildbarn/bb-storage/pkg/blobstore"
+	"github.com/buildbarn/bb-storage/pkg/capabilities"
+	bb_cas "github.com/buildbarn/bb-storage/pkg/cas"
 	"github.com/buildbarn/bb-storage/pkg/clock"
 	"github.com/buildbarn/bb-storage/pkg/grpc"
 	bb_http "github.com/buildbarn/bb-storage/pkg/http/client"
@@ -21,11 +22,12 @@ import (
 // server from a jsonnet configuration.
 func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 	assetStore storage.AssetStore,
-	contentAddressableStorage blobstore.BlobAccess,
+	readerPutter bb_cas.ReaderPutter,
+	treeReader bb_cas.StreamReader,
+	cdcParametersFetcher capabilities.CDCParametersFetcher,
 	grpcClientFactory grpc.ClientFactory,
 	dependenciesGroup program.Group,
-	maximumMessageSizeBytes int,
-	authorizer auth.Authorizer,
+	fetchAuthorizer auth.Authorizer,
 ) (fetch.Fetcher, error) {
 	var fetcher fetch.Fetcher
 	if configuration == nil {
@@ -39,7 +41,8 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			}
 			fetcher = fetch.NewHTTPFetcher(
 				&http.Client{Transport: roundTripper},
-				contentAddressableStorage,
+				readerPutter,
+				cdcParametersFetcher,
 			)
 		case *pb.FetcherConfiguration_Error:
 			fetcher = fetch.NewErrorFetcher(backend.Error)
@@ -51,7 +54,12 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			if err != nil {
 				return nil, err
 			}
-			fetcher = fetch.NewRemoteExecutionFetcher(contentAddressableStorage, client, maximumMessageSizeBytes)
+			fetcher = fetch.NewRemoteExecutionFetcher(
+				readerPutter,
+				treeReader,
+				cdcParametersFetcher,
+				client,
+			)
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "Fetcher configuration is invalid as no supported Fetchers are defined.")
 		}
@@ -67,6 +75,6 @@ func NewFetcherFromConfiguration(configuration *pb.FetcherConfiguration,
 			clock.SystemClock,
 			"fetch",
 		),
-		authorizer,
+		fetchAuthorizer,
 	), nil
 }

@@ -9,6 +9,7 @@ gomock(
     ],
     library = "@com_github_buildbarn_bb_storage//pkg/blobstore",
     package = "mock",
+    source = "@com_github_buildbarn_bb_storage//pkg/blobstore:blob_access.go",
 )
 
 gomock(
@@ -48,6 +49,39 @@ gomock(
     package = "mock",
 )
 
+gomock(
+    name = "storage_capabilities",
+    out = "storage_capabilities.go",
+    interfaces = ["CDCParametersFetcher"],
+    library = "@com_github_buildbarn_bb_storage//pkg/capabilities",
+    package = "mock",
+)
+
+gomock(
+    name = "storage_cas",
+    out = "storage_cas.go",
+    interfaces = ["ReaderPutter"],
+    library = "@com_github_buildbarn_bb_storage//pkg/cas",
+    package = "mock",
+)
+
+gomock(
+    name = "storage_cas_reader",
+    out = "storage_cas_reader.go",
+    interfaces = ["Reader"],
+    library = "@com_github_buildbarn_bb_storage//pkg/cas/reader",
+    package = "mock",
+    source = "@com_github_buildbarn_bb_storage//pkg/cas/reader:reader.go",
+)
+
+gomock(
+    name = "storage_chunk",
+    out = "storage_chunk.go",
+    interfaces = ["MappingFetcher"],
+    library = "@com_github_buildbarn_bb_storage//pkg/blobstore/chunk",
+    package = "mock",
+)
+
 go_library(
     name = "mock",
     srcs = [
@@ -57,6 +91,10 @@ go_library(
         "dummy.go",
         "fetcher.go",
         "storage.go",
+        "storage_capabilities.go",
+        "storage_cas.go",
+        "storage_cas_reader.go",
+        "storage_chunk.go",
     ],
     importpath = "github.com/buildbarn/bb-remote-asset/internal/mock",
     visibility = ["//:__subpackages__"],
@@ -66,14 +104,12 @@ go_library(
         "//pkg/qualifier",
         "@bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_go_proto",
         "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto",
-        "@com_github_buildbarn_bb_storage//pkg/blobstore/buffer",
-        "@com_github_buildbarn_bb_storage//pkg/blobstore/local",
-        "@com_github_buildbarn_bb_storage//pkg/blobstore/slicing",
-        "@com_github_buildbarn_bb_storage//pkg/builder",
-        "@com_github_buildbarn_bb_storage//pkg/clock",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore",
+        "@com_github_buildbarn_bb_storage//pkg/blobstore/chunk",
+        "@com_github_buildbarn_bb_storage//pkg/capabilities",
+        "@com_github_buildbarn_bb_storage//pkg/cas",
+        "@com_github_buildbarn_bb_storage//pkg/cas/reader",
         "@com_github_buildbarn_bb_storage//pkg/digest",
-        "@com_github_buildbarn_bb_storage//pkg/filesystem",
-        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc",
         "@com_github_golang_mock//gomock:go_default_library",
     ],
 )

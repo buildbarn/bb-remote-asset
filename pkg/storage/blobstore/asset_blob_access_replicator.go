@@ -1,6 +1,7 @@
 package blobstore
 
 import (
+	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-storage/pkg/blobstore"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/configuration"
 	"github.com/buildbarn/bb-storage/pkg/blobstore/replication"
@@ -17,7 +18,7 @@ func (brc assetBlobReplicatorCreator) GetDigestKeyFormat() digest.KeyFormat {
 	return digest.KeyWithInstance
 }
 
-func (brc assetBlobReplicatorCreator) NewCustomBlobReplicator(terminationGroup program.Group, configuration *pb.BlobReplicatorConfiguration, source blobstore.BlobAccess, sink configuration.BlobAccessInfo) (replication.BlobReplicator, error) {
+func (brc assetBlobReplicatorCreator) NewCustomBlobReplicator(terminationGroup program.Group, configuration *pb.BlobReplicatorConfiguration, source blobstore.BlobAccess[*asset.Asset], sink configuration.BlobAccessInfo[*asset.Asset]) (replication.BlobReplicator[*asset.Asset], error) {
 	return nil, status.Error(codes.InvalidArgument, "Configuration did not contain a supported replicator")
 }
 
@@ -27,4 +28,4 @@ func (brc assetBlobReplicatorCreator) GetStorageTypeName() string {
 
 // AssetBlobReplicatorCreator is a BlobReplicatorCreator capable of creating
 // BlobReplicators suitable for replicating Assets.
-var AssetBlobReplicatorCreator configuration.BlobReplicatorCreator = assetBlobReplicatorCreator{}
+var AssetBlobReplicatorCreator configuration.BlobReplicatorCreator[*asset.Asset] = assetBlobReplicatorCreator{}

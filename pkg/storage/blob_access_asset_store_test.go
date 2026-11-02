@@ -9,7 +9,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -29,20 +28,17 @@ func TestBlobAccessAssetStorePut(t *testing.T) {
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
 	assetData := storage.NewBlobAsset(blobDigest, timestamppb.Now())
-	_, refDigest, err := storage.ProtoSerialise(assetRef, digestFunction)
+	_, refDigest, err := storage.SerialiseProto(assetRef, digestFunction)
 	require.NoError(t, err)
 
-	blobAccess := mock.NewMockBlobAccess(ctrl)
+	blobAccess := mock.NewMockBlobAccess[*asset.Asset](ctrl)
 	blobAccess.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&asset.Asset{}, 1000)
-			require.NoError(t, err)
-			a := m.(*asset.Asset)
+		func(ctx context.Context, digest digest.Digest, a *asset.Asset) error {
 			require.True(t, proto.Equal(a.Digest, blobDigest))
 			return nil
 		},
 	)
-	assetStore := storage.NewBlobAccessAssetStore(blobAccess, 16*1024*1024)
+	assetStore := storage.NewBlobAccessAssetStore(blobAccess)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -59,14 +55,12 @@ func TestBlobAccessAssetStoreGet(t *testing.T) {
 	blobDigest := &remoteexecution.Digest{Hash: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f", SizeBytes: 222}
 	uri := "https://example.com/example.txt"
 	assetRef := storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{})
-	_, refDigest, err := storage.ProtoSerialise(assetRef, digestFunction)
+	_, refDigest, err := storage.SerialiseProto(assetRef, digestFunction)
 	require.NoError(t, err)
 
-	buf := buffer.NewProtoBufferFromProto(&asset.Asset{Digest: blobDigest}, buffer.UserProvided)
-
-	backend := mock.NewMockBlobAccess(ctrl)
-	backend.EXPECT().Get(ctx, refDigest).Return(buf)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	backend.EXPECT().Get(ctx, refDigest).Return(&asset.Asset{Digest: blobDigest}, nil)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 
 	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)

@@ -13,7 +13,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/qualifier"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/testutil"
 	"github.com/buildbarn/bb-storage/pkg/util"
@@ -77,33 +76,6 @@ func digestToChecksumSri(df remoteexecution.DigestFunction_Value, d digest.Diges
 	return fmt.Sprintf("%s-%s", HashNames[df], base64.StdEncoding.EncodeToString(d.GetHashBytes()))
 }
 
-func requireBlobBufferContentsFromChunkReader(t *testing.T, blobBuffer buffer.Buffer) {
-	t.Helper()
-
-	chunkReader := blobBuffer.ToChunkReader(0, 2)
-	defer chunkReader.Close()
-
-	var data []byte
-	for {
-		chunk, err := chunkReader.Read()
-		if err == nil {
-			data = append(data, chunk...)
-			continue
-		}
-		require.ErrorIs(t, err, io.EOF)
-		break
-	}
-	require.Equal(t, TestData, string(data))
-}
-
-func requireBlobBufferContentsIntoWriter(t *testing.T, blobBuffer buffer.Buffer) {
-	t.Helper()
-
-	var data bytes.Buffer
-	require.NoError(t, blobBuffer.IntoWriter(&data))
-	require.Equal(t, TestData, data.String())
-}
-
 func requireNoTemporaryFiles(t *testing.T, tempDir string) {
 	t.Helper()
 
@@ -112,19 +84,14 @@ func requireNoTemporaryFiles(t *testing.T, tempDir string) {
 	require.Empty(t, entries)
 }
 
-func expectBlobPut(t *testing.T, casBlobAccess *mock.MockBlobAccess, ctx context.Context, blobDigest digest.Digest) *gomock.Call {
-	return casBlobAccess.EXPECT().Put(ctx, blobDigest, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ digest.Digest, blobBuffer buffer.Buffer) error {
-			requireBlobBufferContentsFromChunkReader(t, blobBuffer)
-			return nil
-		},
-	)
-}
-
-func expectBlobPutIntoWriter(t *testing.T, casBlobAccess *mock.MockBlobAccess, ctx context.Context, blobDigest digest.Digest) *gomock.Call {
-	return casBlobAccess.EXPECT().Put(ctx, blobDigest, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ digest.Digest, blobBuffer buffer.Buffer) error {
-			requireBlobBufferContentsIntoWriter(t, blobBuffer)
+func expectBlobPut(t *testing.T, protoPutter *mock.MockReaderPutter, cdcParametersFetcher *mock.MockCDCParametersFetcher, ctx context.Context, blobDigest digest.Digest) *gomock.Call {
+	cdcParametersFetcher.EXPECT().FetchCDCParameters(ctx, blobDigest.GetInstanceName()).Return(&remoteexecution.RepMaxCdcParams{}, nil).AnyTimes()
+	return protoPutter.EXPECT().PutReaderAt(ctx, blobDigest, gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ digest.Digest, r io.ReaderAt, _ *remoteexecution.RepMaxCdcParams) error {
+			data := make([]byte, len(TestData))
+			_, err := r.ReadAt(data, 0)
+			require.NoError(t, err)
+			require.Equal(t, TestData, string(data))
 			return nil
 		},
 	)
@@ -193,9 +160,10 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 		},
 		DigestFunction: digestFunctionEnum,
 	}
-	casBlobAccess := mock.NewMockBlobAccess(ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
-	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, protoPutter, cdcParametersFetcher)
 
 	t.Run("Success"+helloDigest.GetDigestFunction().GetEnumValue().String(), func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -207,7 +175,7 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -226,7 +194,7 @@ func testHTTPFetcherFetchBlobSuccessWithHasher(t *testing.T, digestFunctionEnum 
 			Body:          body,
 			ContentLength: -1,
 		}, nil)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -257,9 +225,10 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			},
 		},
 	}
-	casBlobAccess := mock.NewMockBlobAccess(ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
-	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, protoPutter, cdcParametersFetcher)
 
 	t.Run("SuccessNoExpectedDigest", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -276,7 +245,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -300,7 +269,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: -1,
 		}, nil)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -319,7 +288,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		expectBlobPutIntoWriter(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -391,6 +360,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 				ContentLength: 5,
 			}, nil
 		})
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, &remoteasset.FetchBlobRequest{
 			InstanceName: InstanceName,
@@ -419,7 +389,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil).After(httpFailCall)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpSuccessCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpSuccessCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -467,7 +437,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -522,7 +492,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			Body:          body,
 			ContentLength: 5,
 		}, nil)
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.NoError(t, err)
@@ -578,7 +548,7 @@ func TestHTTPFetcherFetchBlob(t *testing.T) {
 			ContentLength: 5,
 		}, nil)
 
-		expectBlobPut(t, casBlobAccess, ctx, helloDigest).After(httpDoCall2)
+		expectBlobPut(t, protoPutter, cdcParametersFetcher, ctx, helloDigest).After(httpDoCall2)
 
 		response, err := HTTPFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
@@ -595,9 +565,10 @@ func TestHTTPFetcherFetchDirectory(t *testing.T) {
 		InstanceName: "",
 		Uris:         []string{uri, "www.another.com"},
 	}
-	casBlobAccess := mock.NewMockBlobAccess(ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
 	roundTripper := mock.NewMockRoundTripper(ctrl)
-	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, casBlobAccess)
+	HTTPFetcher := fetch.NewHTTPFetcher(&http.Client{Transport: roundTripper}, protoPutter, cdcParametersFetcher)
 	_, err := HTTPFetcher.FetchDirectory(ctx, request)
 	require.NotNil(t, err)
 	require.Equal(t, status.Code(err), codes.PermissionDenied)
