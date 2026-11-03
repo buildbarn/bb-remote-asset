@@ -11,7 +11,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/pkg/fetch"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	bb_digest "github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/golang/mock/gomock"
@@ -37,28 +36,25 @@ func TestFetchBlobCaching(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	blobDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
-	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
+	_, refDigest, err := storage.SerialiseProto(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
 	t.Logf("Ref digest was %v", refDigest)
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
 	t.Run("Success", func(t *testing.T) {
-		backendGetCall := backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "Blob not found")))
+		backendGetCall := backend.EXPECT().Get(ctx, refDigest).Return(nil, status.Error(codes.NotFound, "Blob not found"))
 		fetchBlobCall := mockFetcher.EXPECT().FetchBlob(ctx, request).Return(&remoteasset.FetchBlobResponse{
 			Status:     status.New(codes.OK, "Success!").Proto(),
 			Uri:        uri,
 			BlobDigest: blobDigest,
 		}, nil).After(backendGetCall)
 		backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
-			func(ctx context.Context, digest bb_digest.Digest, b buffer.Buffer) error {
-				m, err := b.ToProto(&asset.Asset{}, 1000)
-				require.NoError(t, err)
-				a := m.(*asset.Asset)
+			func(ctx context.Context, digest bb_digest.Digest, a *asset.Asset) error {
 				require.True(t, proto.Equal(a.Digest, blobDigest))
 				require.Equal(t, asset.Asset_BLOB, a.Type)
 				return nil
@@ -70,14 +66,14 @@ func TestFetchBlobCaching(t *testing.T) {
 	})
 
 	t.Run("Failure", func(t *testing.T) {
-		backendGetCall := backend.EXPECT().Get(ctx, gomock.Any()).Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "Blob not found")))
+		backendGetCall := backend.EXPECT().Get(ctx, gomock.Any()).Return(nil, status.Error(codes.NotFound, "Blob not found"))
 		mockFetcher.EXPECT().FetchBlob(ctx, request).Return(nil, status.Error(codes.NotFound, "Not Found!")).After(backendGetCall)
 		_, err := cachingFetcher.FetchBlob(ctx, request)
 		require.NotNil(t, err)
 	})
 
 	t.Run("Cached", func(t *testing.T) {
-		backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(blobDigest, nil), buffer.UserProvided))
+		backend.EXPECT().Get(ctx, refDigest).Return(storage.NewBlobAsset(blobDigest, nil), nil)
 		response, err := cachingFetcher.FetchBlob(ctx, request)
 		require.Nil(t, err)
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -98,26 +94,23 @@ func TestFetchDirectoryCaching(t *testing.T) {
 		Uris:         []string{uri},
 	}
 	dirDigest := &remoteexecution.Digest{Hash: "d0d829c4c0ce64787cb1c998a9c29a109f8ed005633132fda4f29982487b04db", SizeBytes: 123}
-	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
+	_, refDigest, err := storage.SerialiseProto(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
 	t.Run("Success", func(t *testing.T) {
-		backendGetCall := backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "Directory not found")))
+		backendGetCall := backend.EXPECT().Get(ctx, refDigest).Return(nil, status.Error(codes.NotFound, "Directory not found"))
 		fetchDirectoryCall := mockFetcher.EXPECT().FetchDirectory(ctx, request).Return(&remoteasset.FetchDirectoryResponse{
 			Status:              status.New(codes.OK, "Success!").Proto(),
 			Uri:                 uri,
 			RootDirectoryDigest: dirDigest,
 		}, nil).After(backendGetCall)
 		backend.EXPECT().Put(ctx, refDigest, gomock.Any()).DoAndReturn(
-			func(ctx context.Context, digest bb_digest.Digest, b buffer.Buffer) error {
-				m, err := b.ToProto(&asset.Asset{}, 1000)
-				require.NoError(t, err)
-				a := m.(*asset.Asset)
+			func(ctx context.Context, digest bb_digest.Digest, a *asset.Asset) error {
 				require.True(t, proto.Equal(a.Digest, dirDigest))
 				require.Equal(t, asset.Asset_DIRECTORY, a.Type)
 				return nil
@@ -129,14 +122,14 @@ func TestFetchDirectoryCaching(t *testing.T) {
 	})
 
 	t.Run("Failure", func(t *testing.T) {
-		backendGetCall := backend.EXPECT().Get(ctx, gomock.Any()).Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "Directory not found")))
+		backendGetCall := backend.EXPECT().Get(ctx, gomock.Any()).Return(nil, status.Error(codes.NotFound, "Directory not found"))
 		mockFetcher.EXPECT().FetchDirectory(ctx, request).Return(nil, status.Error(codes.NotFound, "Not Found!")).After(backendGetCall)
 		_, err := cachingFetcher.FetchDirectory(ctx, request)
 		require.NotNil(t, err)
 	})
 
 	t.Run("Cached", func(t *testing.T) {
-		backend.EXPECT().Get(ctx, refDigest).Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(dirDigest, nil), buffer.UserProvided))
+		backend.EXPECT().Get(ctx, refDigest).Return(storage.NewBlobAsset(dirDigest, nil), nil)
 		response, err := cachingFetcher.FetchDirectory(ctx, request)
 		require.Nil(t, err)
 		require.Equal(t, response.Status.Code, int32(codes.OK))
@@ -156,20 +149,20 @@ func TestCachingFetcherExpiry(t *testing.T) {
 		InstanceName: "foo",
 		Uris:         []string{uri},
 	}
-	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
+	_, refDigest, err := storage.SerialiseProto(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	buf := buffer.NewProtoBufferFromProto(&asset.Asset{
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	buf := &asset.Asset{
 		Digest: &remoteexecution.Digest{
 			Hash:      "d1bc8d3ba4afc7e109612cb73acbdddac052c93025aa1f82942edabb7deb82a1",
 			SizeBytes: 121,
 		},
 		ExpireAt:    timestamppb.Now(),
 		LastUpdated: timestamppb.Now(),
-	}, buffer.UserProvided)
-	backend.EXPECT().Get(ctx, refDigest).Return(buf)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	}
+	backend.EXPECT().Get(ctx, refDigest).Return(buf, nil)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	baseFetcher := fetch.NewErrorFetcher(&protostatus.Status{
 		Code:    5,
 		Message: "Not found",
@@ -198,21 +191,21 @@ func TestCachingFetcherOldestContentAccepted(t *testing.T) {
 		Uris:                  []string{uri},
 		OldestContentAccepted: timestamppb.Now(),
 	}
-	_, refDigest, err := storage.ProtoSerialise(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
+	_, refDigest, err := storage.SerialiseProto(storage.NewAssetReference([]string{uri}, []*remoteasset.Qualifier{}), digestFunction)
 	require.NoError(t, err)
 
-	backend := mock.NewMockBlobAccess(ctrl)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
 	ts := timestamppb.New(time.Unix(1, 1))
-	buf := buffer.NewProtoBufferFromProto(&asset.Asset{
+	buf := &asset.Asset{
 		Digest: &remoteexecution.Digest{
 			Hash:      "ad84ffc44bab3f84fc3396b4678c1fd39770fa373c3f14eedc5d60e648067960",
 			SizeBytes: 234,
 		},
 		LastUpdated: ts,
 		Type:        asset.Asset_BLOB,
-	}, buffer.UserProvided)
-	backend.EXPECT().Get(ctx, refDigest).Return(buf)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	}
+	backend.EXPECT().Get(ctx, refDigest).Return(buf, nil)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	baseFetcher := fetch.NewErrorFetcher(&protostatus.Status{
 		Code:    5,
 		Message: "Not found",
@@ -255,8 +248,8 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 		SizeBytes: 42,
 	}
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
@@ -268,7 +261,7 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 		Do(func(_ context.Context, d bb_digest.Digest) {
 			firstDigest = d
 		}).
-		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+		Return(nil, status.Error(codes.NotFound, "miss"))
 	mockFetcher.
 		EXPECT().
 		FetchBlob(ctx, req1).
@@ -282,7 +275,7 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 	backend.
 		EXPECT().
 		Put(ctx, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, a *asset.Asset) error {
 			require.Equal(t, firstDigest, d)
 			return nil
 		})
@@ -294,7 +287,7 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 	backend.
 		EXPECT().
 		Get(ctx, firstDigest).
-		Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(blobDigest, nil), buffer.UserProvided))
+		Return(storage.NewBlobAsset(blobDigest, nil), nil)
 
 	_, err = cachingFetcher.FetchBlob(ctx, req2)
 	require.NoError(t, err)
@@ -308,7 +301,7 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 			require.NotEqual(t, firstDigest, d)
 			thirdDigest = d
 		}).
-		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+		Return(nil, status.Error(codes.NotFound, "miss"))
 	mockFetcher.
 		EXPECT().
 		FetchBlob(ctx, req3).
@@ -322,7 +315,7 @@ func TestFetchBlobVolatileQualifiersIgnored(t *testing.T) {
 	backend.
 		EXPECT().
 		Put(ctx, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, a *asset.Asset) error {
 			require.Equal(t, thirdDigest, d)
 			return nil
 		})
@@ -359,8 +352,8 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 		SizeBytes: 99,
 	}
 
-	backend := mock.NewMockBlobAccess(ctrl)
-	assetStore := storage.NewBlobAccessAssetStore(backend, 16*1024*1024)
+	backend := mock.NewMockBlobAccess[*asset.Asset](ctrl)
+	assetStore := storage.NewBlobAccessAssetStore(backend)
 	mockFetcher := mock.NewMockFetcher(ctrl)
 	cachingFetcher := fetch.NewCachingFetcher(mockFetcher, assetStore)
 
@@ -372,7 +365,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 		Do(func(_ context.Context, d bb_digest.Digest) {
 			firstDigest = d
 		}).
-		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+		Return(nil, status.Error(codes.NotFound, "miss"))
 	mockFetcher.
 		EXPECT().
 		FetchDirectory(ctx, req1).
@@ -386,7 +379,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 	backend.
 		EXPECT().
 		Put(ctx, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, a *asset.Asset) error {
 			require.Equal(t, firstDigest, d)
 			return nil
 		})
@@ -398,7 +391,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 	backend.
 		EXPECT().
 		Get(ctx, firstDigest).
-		Return(buffer.NewProtoBufferFromProto(storage.NewBlobAsset(dirDigest, nil), buffer.UserProvided))
+		Return(storage.NewBlobAsset(dirDigest, nil), nil)
 
 	_, err = cachingFetcher.FetchDirectory(ctx, req2)
 	require.NoError(t, err)
@@ -412,7 +405,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 			require.NotEqual(t, firstDigest, d)
 			thirdDigest = d
 		}).
-		Return(buffer.NewBufferFromError(status.Error(codes.NotFound, "miss")))
+		Return(nil, status.Error(codes.NotFound, "miss"))
 	mockFetcher.
 		EXPECT().
 		FetchDirectory(ctx, req3).
@@ -426,7 +419,7 @@ func TestFetchDirectoryVolatileQualifiersIgnored(t *testing.T) {
 	backend.
 		EXPECT().
 		Put(ctx, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, d bb_digest.Digest, b buffer.Buffer) error {
+		DoAndReturn(func(_ context.Context, d bb_digest.Digest, a *asset.Asset) error {
 			require.Equal(t, thirdDigest, d)
 			return nil
 		})

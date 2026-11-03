@@ -11,7 +11,6 @@ import (
 	"github.com/buildbarn/bb-remote-asset/internal/mock"
 	"github.com/buildbarn/bb-remote-asset/pkg/proto/asset"
 	"github.com/buildbarn/bb-remote-asset/pkg/storage"
-	"github.com/buildbarn/bb-storage/pkg/blobstore/buffer"
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/golang/mock/gomock"
@@ -30,6 +29,14 @@ func bbDigest(d *remoteexecution.Digest) digest.Digest {
 		d.Hash,
 		d.SizeBytes,
 	)
+}
+
+// expectPutObject sets up the CAS put for the given digest. The
+// actionCacheAssetStore fetches CDC parameters before every put, so a
+// matching expectation is registered as well.
+func expectPutObject(protoPutter *mock.MockReaderPutter, cdcParametersFetcher *mock.MockCDCParametersFetcher, ctx context.Context, d digest.Digest) *gomock.Call {
+	cdcParametersFetcher.EXPECT().FetchCDCParameters(ctx, d.GetInstanceName()).Return(&remoteexecution.RepMaxCdcParams{}, nil).AnyTimes()
+	return protoPutter.EXPECT().PutReaderAt(ctx, d, gomock.Any(), gomock.Any())
 }
 
 func TestActionCacheAssetStorePutBlob(t *testing.T) {
@@ -72,17 +79,16 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 		40,
 	)
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	cas.EXPECT().Put(ctx, refDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, directoryDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, commandDigest, gomock.Any()).Return(nil)
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, refDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, directoryDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, actionDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, commandDigest).Return(nil)
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
-			require.NoError(t, err)
-			a := m.(*remoteexecution.ActionResult)
+		func(ctx context.Context, digest digest.Digest, a *remoteexecution.ActionResult) error {
 			for _, f := range a.OutputFiles {
 				if f.Path == "out" {
 					require.True(t, proto.Equal(f.Digest, blobDigest), "Got %v", f.Digest)
@@ -92,7 +98,7 @@ func TestActionCacheAssetStorePutBlob(t *testing.T) {
 			return status.Error(codes.Internal, "Blob digest not found")
 		},
 	)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -122,7 +128,7 @@ func TestActionCacheAssetStorePutBlobWithPlatform(t *testing.T) {
 
 	// Compute expected digests
 	qr := storage.NewAssetReference(nil, assetRef.Qualifiers)
-	_, qrDigest, err := storage.ProtoSerialise(qr, digestFunction)
+	_, qrDigest, err := storage.SerialiseProto(qr, digestFunction)
 	require.NoError(t, err)
 
 	directory := &remoteexecution.Directory{
@@ -131,7 +137,7 @@ func TestActionCacheAssetStorePutBlobWithPlatform(t *testing.T) {
 			Digest: qrDigest.GetProto(),
 		}},
 	}
-	_, directoryDigest, err := storage.ProtoSerialise(directory, digestFunction)
+	_, directoryDigest, err := storage.SerialiseProto(directory, digestFunction)
 	require.NoError(t, err)
 
 	command := &remoteexecution.Command{
@@ -140,7 +146,7 @@ func TestActionCacheAssetStorePutBlobWithPlatform(t *testing.T) {
 		OutputDirectoryFormat: remoteexecution.Command_TREE_AND_DIRECTORY,
 		Platform:              platform,
 	}
-	_, commandDigest, err := storage.ProtoSerialise(command, digestFunction)
+	_, commandDigest, err := storage.SerialiseProto(command, digestFunction)
 	require.NoError(t, err)
 
 	action := &remoteexecution.Action{
@@ -148,21 +154,23 @@ func TestActionCacheAssetStorePutBlobWithPlatform(t *testing.T) {
 		InputRootDigest: directoryDigest.GetProto(),
 		Platform:        platform,
 	}
-	_, actionDigest, err := storage.ProtoSerialise(action, digestFunction)
+	_, actionDigest, err := storage.SerialiseProto(action, digestFunction)
 	require.NoError(t, err)
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
 
 	// Expect uploads to CAS with specific digests!
-	cas.EXPECT().Put(ctx, qrDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, directoryDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, commandDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, qrDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, directoryDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, commandDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, actionDigest).Return(nil)
 
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
 
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, platform)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, platform)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -229,24 +237,20 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 		SizeBytes: 2,
 	}
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	cas.EXPECT().Put(ctx, refDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, directoryDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, actionDigest, gomock.Any()).Return(nil)
-	cas.EXPECT().Put(ctx, commandDigest, gomock.Any()).Return(nil)
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, refDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, directoryDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, actionDigest).Return(nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, commandDigest).Return(nil)
 
-	cas.EXPECT().Get(ctx, bbRootDirectoryDigest).Return(
-		buffer.NewProtoBufferFromProto(&remoteexecution.Directory{},
-			buffer.UserProvided),
-	)
-	cas.EXPECT().Put(ctx, bbTreeDigest, gomock.Any()).Return(nil)
+	directoryReader.EXPECT().Read(ctx, bbRootDirectoryDigest).Return(&remoteexecution.Directory{}, nil)
+	expectPutObject(protoPutter, cdcParametersFetcher, ctx, bbTreeDigest).Return(nil)
 
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
-			require.NoError(t, err)
-			a := m.(*remoteexecution.ActionResult)
+		func(ctx context.Context, digest digest.Digest, a *remoteexecution.ActionResult) error {
 			for _, d := range a.OutputDirectories {
 				if d.Path == "out" {
 					require.True(t, proto.Equal(d.TreeDigest, treeDigest), "Got %v", d.TreeDigest)
@@ -257,7 +261,7 @@ func TestActionCacheAssetStorePutDirectory(t *testing.T) {
 			return status.Error(codes.Internal, "Directory digest not found")
 		},
 	)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -290,21 +294,21 @@ func TestActionCacheAssetStorePutMalformedDirectory(t *testing.T) {
 		timestamppb.Now(),
 	)
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	cas.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	cdcParametersFetcher.EXPECT().FetchCDCParameters(ctx, gomock.Any()).Return(&remoteexecution.RepMaxCdcParams{}, nil).AnyTimes()
+	protoPutter.EXPECT().PutReaderAt(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	cas.EXPECT().Get(ctx, bbRootDirectoryDigest).Return(
-		buffer.NewProtoBufferFromProto(&remoteexecution.Directory{
-			Directories: []*remoteexecution.DirectoryNode{{
-				Name:   "this is a malformed directory noe",
-				Digest: nil,
-			}},
-		},
-			buffer.UserProvided),
-	)
+	directoryReader.EXPECT().Read(ctx, bbRootDirectoryDigest).Return(&remoteexecution.Directory{
+		Directories: []*remoteexecution.DirectoryNode{{
+			Name:   "this is a malformed directory noe",
+			Digest: nil,
+		}},
+	}, nil)
 
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NotNil(t, err)
@@ -323,7 +327,7 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		SizeBytes: 40,
 	}
 	sub2Digest := &remoteexecution.Digest{
-		Hash:      "1dc3fa2e0703bb64c17a3b0b4402c44a666ec8ac361e77bb526a65dea6d73bf0",
+		Hash:      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		SizeBytes: 0,
 	}
 
@@ -363,9 +367,9 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		},
 	}
 
-	rootDirectoryPb, rootDirectoryDigest, err := storage.ProtoSerialise(tree.Root, digestFunction)
+	_, rootDirectoryDigest, err := storage.SerialiseProto(tree.Root, digestFunction)
 	require.NoError(t, err)
-	_, treeDigest, err := storage.ProtoSerialise(tree, digestFunction)
+	_, treeDigest, err := storage.SerialiseProto(tree, digestFunction)
 	require.NoError(t, err)
 
 	t.Logf("rootDirectoryDigest %v", rootDirectoryDigest)
@@ -380,29 +384,19 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		timestamppb.Now(),
 	)
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	cas.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	cdcParametersFetcher.EXPECT().FetchCDCParameters(ctx, gomock.Any()).Return(&remoteexecution.RepMaxCdcParams{}, nil).AnyTimes()
+	protoPutter.EXPECT().PutReaderAt(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	cas.EXPECT().Get(ctx, rootDirectoryDigest).Return(rootDirectoryPb)
-	cas.EXPECT().Get(ctx, bbDigest(sub1Digest)).Return(
-		buffer.NewProtoBufferFromProto(
-			tree.Children[0],
-			buffer.UserProvided,
-		),
-	)
-	cas.EXPECT().Get(ctx, bbDigest(sub2Digest)).Return(
-		buffer.NewProtoBufferFromProto(
-			tree.Children[1],
-			buffer.UserProvided,
-		),
-	)
+	directoryReader.EXPECT().Read(ctx, rootDirectoryDigest).Return(tree.Root, nil)
+	directoryReader.EXPECT().Read(ctx, bbDigest(sub1Digest)).Return(tree.Children[0], nil)
+	directoryReader.EXPECT().Read(ctx, bbDigest(sub2Digest)).Return(tree.Children[1], nil)
 
 	ac.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
-			require.NoError(t, err)
-			a := m.(*remoteexecution.ActionResult)
+		func(ctx context.Context, digest digest.Digest, a *remoteexecution.ActionResult) error {
 			for _, d := range a.OutputDirectories {
 				if d.Path == "out" {
 					require.True(t, proto.Equal(d.TreeDigest, treeDigest.GetProto()), "Got %v", d.TreeDigest)
@@ -414,7 +408,7 @@ func TestActionCacheAssetStorePutRecursiveDirectory(t *testing.T) {
 		},
 	)
 
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -447,14 +441,14 @@ func TestActionCacheAssetStorePutMalformedDirectoryAsBlob(t *testing.T) {
 		140,
 	)
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	cas.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).Return(nil).Times(4)
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	cdcParametersFetcher.EXPECT().FetchCDCParameters(ctx, gomock.Any()).Return(&remoteexecution.RepMaxCdcParams{}, nil).AnyTimes()
+	protoPutter.EXPECT().PutReaderAt(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(4)
 	ac.EXPECT().Put(ctx, actionDigest, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
-			m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
-			require.NoError(t, err)
-			a := m.(*remoteexecution.ActionResult)
+		func(ctx context.Context, digest digest.Digest, a *remoteexecution.ActionResult) error {
 			for _, d := range a.OutputFiles {
 				if d.Path == "out" {
 					require.True(t, proto.Equal(d.Digest, blobDigest), "Got %v", d.Digest)
@@ -464,7 +458,7 @@ func TestActionCacheAssetStorePutMalformedDirectoryAsBlob(t *testing.T) {
 			return status.Error(codes.Internal, "Directory digest not found")
 		},
 	)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 	require.NoError(t, err)
@@ -482,29 +476,27 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 	var actionResult *remoteexecution.ActionResult
 
 	{
-		ac := mock.NewMockBlobAccess(ctrl)
-		cas := mock.NewMockBlobAccess(ctrl)
+		ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+		protoPutter := mock.NewMockReaderPutter(ctrl)
+		directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+		cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
 
-		cas.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).AnyTimes()
+		cdcParametersFetcher.EXPECT().FetchCDCParameters(ctx, gomock.Any()).Return(&remoteexecution.RepMaxCdcParams{}, nil).AnyTimes()
+		protoPutter.EXPECT().PutReaderAt(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		if assetData.Type == asset.Asset_DIRECTORY {
-			cas.EXPECT().Get(ctx, gomock.Any()).Return(
-				buffer.NewProtoBufferFromProto(&remoteexecution.Directory{},
-					buffer.UserProvided),
-			)
+			directoryReader.EXPECT().Read(ctx, gomock.Any()).Return(&remoteexecution.Directory{}, nil)
 		}
 
 		ac.EXPECT().Put(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, digest digest.Digest, b buffer.Buffer) error {
+			func(ctx context.Context, digest digest.Digest, a *remoteexecution.ActionResult) error {
 				actionDigest = digest
-				m, err := b.ToProto(&remoteexecution.ActionResult{}, 1000)
-				require.NoError(t, err)
-				actionResult = m.(*remoteexecution.ActionResult)
+				actionResult = a
 				return nil
 			},
 		)
 
-		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+		assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 		err = assetStore.Put(ctx, assetRef, assetData, digestFunction)
 		require.NoError(t, err)
@@ -512,19 +504,21 @@ func roundTripTest(t *testing.T, assetRef *asset.AssetReference, assetData *asse
 	{
 		require.NotNil(t, actionResult)
 
-		ac := mock.NewMockBlobAccess(ctrl)
-		cas := mock.NewMockBlobAccess(ctrl)
+		ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+		protoPutter := mock.NewMockReaderPutter(ctrl)
+		directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+		cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
 
 		ac.EXPECT().Get(ctx, gomock.Any()).DoAndReturn(
-			func(ctx context.Context, digest digest.Digest) buffer.Buffer {
+			func(ctx context.Context, digest digest.Digest) (*remoteexecution.ActionResult, error) {
 				if digest == actionDigest {
-					return buffer.NewProtoBufferFromProto(actionResult, buffer.UserProvided)
+					return actionResult, nil
 				}
-				return buffer.NewBufferFromError(fmt.Errorf("not in AC"))
+				return nil, fmt.Errorf("not in AC")
 			},
 		)
 
-		assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+		assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 		asset, err := assetStore.Get(ctx, assetRef, digestFunction)
 		require.NoError(t, err)
@@ -600,7 +594,7 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 	)
 
 	ts := timestamppb.New(time.Unix(0, 0))
-	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
+	actionResult := &remoteexecution.ActionResult{
 		OutputFiles: []*remoteexecution.OutputFile{
 			{
 				Path:   "out",
@@ -610,12 +604,14 @@ func TestActionCacheAssetStoreGetBlob(t *testing.T) {
 		ExecutionMetadata: &remoteexecution.ExecutedActionMetadata{
 			QueuedTimestamp: ts,
 		},
-	}, buffer.UserProvided)
+	}
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	ac.EXPECT().Get(ctx, actionDigest).Return(actionResult, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)
@@ -639,7 +635,7 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 	)
 
 	ts := timestamppb.New(time.Unix(0, 0))
-	buf := buffer.NewProtoBufferFromProto(&remoteexecution.ActionResult{
+	actionResult := &remoteexecution.ActionResult{
 		OutputFiles: []*remoteexecution.OutputFile{
 			{
 				Path: "out",
@@ -652,12 +648,14 @@ func TestActionCacheAssetStoreGetDirectory(t *testing.T) {
 		ExecutionMetadata: &remoteexecution.ExecutedActionMetadata{
 			QueuedTimestamp: ts,
 		},
-	}, buffer.UserProvided)
+	}
 
-	ac := mock.NewMockBlobAccess(ctrl)
-	cas := mock.NewMockBlobAccess(ctrl)
-	ac.EXPECT().Get(ctx, actionDigest).Return(buf)
-	assetStore := storage.NewActionCacheAssetStore(ac, cas, 16*1024*1024, nil)
+	ac := mock.NewMockBlobAccess[*remoteexecution.ActionResult](ctrl)
+	protoPutter := mock.NewMockReaderPutter(ctrl)
+	directoryReader := mock.NewMockReader[*remoteexecution.Directory](ctrl)
+	cdcParametersFetcher := mock.NewMockCDCParametersFetcher(ctrl)
+	ac.EXPECT().Get(ctx, actionDigest).Return(actionResult, nil)
+	assetStore := storage.NewActionCacheAssetStore(ac, protoPutter, directoryReader, cdcParametersFetcher, nil)
 
 	_, err = assetStore.Get(ctx, assetRef, digestFunction)
 	require.NoError(t, err)

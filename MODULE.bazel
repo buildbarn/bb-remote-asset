@@ -9,7 +9,7 @@ bazel_dep(name = "googleapis", version = "0.0.0-20260929-28769825")
 bazel_dep(name = "jsonnet_go", version = "0.22.0")
 bazel_dep(name = "protobuf", version = "35.1")
 bazel_dep(name = "protoc-gen-validate", version = "1.3.3")
-bazel_dep(name = "rules_go", version = "0.63.0")
+bazel_dep(name = "rules_go", version = "0.64.2")
 bazel_dep(name = "rules_jsonnet", version = "0.7.2")
 bazel_dep(name = "toolchains_llvm", version = "1.8.0")
 
@@ -17,21 +17,21 @@ bazel_dep(name = "toolchains_llvm", version = "1.8.0")
 # git, and make it fetchable by the remote downloader.
 archive_override(
     module_name = "bazel_remote_apis",
-    integrity = "sha256-XAEBIXXuK5uv9yVvarYDBSWiPFpRAbNTAF+qf+HcuV0=",
+    integrity = "sha256-x9clYSMza7A0EIUekDpbM6I73WEwhCbIMXs6zuIBFnQ=",
     # https://github.com/bazelbuild/remote-apis/pull/378
     patches = ["//:patches/bazel_remote_apis/upstream-pr-378.diff"],
-    strip_prefix = "remote-apis-adbf4a27c86fbea4a37637a6cbcacef372406fe7",
-    urls = ["https://github.com/bazelbuild/remote-apis/archive/adbf4a27c86fbea4a37637a6cbcacef372406fe7.tar.gz"],
+    strip_prefix = "remote-apis-76ddd98e1f92c0e2e71d0d3aa6906eca31754c03",
+    urls = ["https://github.com/bazelbuild/remote-apis/archive/76ddd98e1f92c0e2e71d0d3aa6906eca31754c03.tar.gz"],
 )
 
 archive_override(
     module_name = "com_github_buildbarn_bb_storage",
-    integrity = "sha256-ULS5Z21flQ5nW03e9jb2+yFO1PqVFa0m9qA2cCFYVd8=",
+    integrity = "sha256-5EE+t9jaqJJR7jjy9YQppHDLyXZttr1KXpmX2hjrMV8=",
     patches = [
         "//:patches/com_buildbarn_bb_storage/workflows.diff",
     ],
-    strip_prefix = "bb-storage-027bd797f1ec7631b49c4f459c06dee995f7e2f9",
-    urls = ["https://github.com/buildbarn/bb-storage/archive/027bd797f1ec7631b49c4f459c06dee995f7e2f9.tar.gz"],
+    strip_prefix = "bb-storage-ca3d8b49a5af52eb02ed473dd689d19b949c9e41",
+    urls = ["https://github.com/buildbarn/bb-storage/archive/ca3d8b49a5af52eb02ed473dd689d19b949c9e41.tar.gz"],
 )
 
 single_version_override(
