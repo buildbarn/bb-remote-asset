@@ -24,6 +24,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type FetchPolicy_Action int32
+
+const (
+	FetchPolicy_ACTION_UNSPECIFIED FetchPolicy_Action = 0
+	FetchPolicy_ACCEPT             FetchPolicy_Action = 1
+	FetchPolicy_ACCEPT_REFRESH     FetchPolicy_Action = 2
+	FetchPolicy_DENY               FetchPolicy_Action = 3
+)
+
+// Enum value maps for FetchPolicy_Action.
+var (
+	FetchPolicy_Action_name = map[int32]string{
+		0: "ACTION_UNSPECIFIED",
+		1: "ACCEPT",
+		2: "ACCEPT_REFRESH",
+		3: "DENY",
+	}
+	FetchPolicy_Action_value = map[string]int32{
+		"ACTION_UNSPECIFIED": 0,
+		"ACCEPT":             1,
+		"ACCEPT_REFRESH":     2,
+		"DENY":               3,
+	}
+)
+
+func (x FetchPolicy_Action) Enum() *FetchPolicy_Action {
+	p := new(FetchPolicy_Action)
+	*p = x
+	return p
+}
+
+func (x FetchPolicy_Action) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FetchPolicy_Action) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_enumTypes[0].Descriptor()
+}
+
+func (FetchPolicy_Action) Type() protoreflect.EnumType {
+	return &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_enumTypes[0]
+}
+
+func (x FetchPolicy_Action) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FetchPolicy_Action.Descriptor instead.
+func (FetchPolicy_Action) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDescGZIP(), []int{1, 0}
+}
+
 type FetcherConfiguration struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Backend:
@@ -32,6 +84,7 @@ type FetcherConfiguration struct {
 	//	*FetcherConfiguration_Error
 	//	*FetcherConfiguration_RemoteExecution
 	Backend       isFetcherConfiguration_Backend `protobuf_oneof:"backend"`
+	Policy        *FetchPolicy                   `protobuf:"bytes,5,opt,name=policy,proto3" json:"policy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -100,6 +153,13 @@ func (x *FetcherConfiguration) GetRemoteExecution() *FetcherConfiguration_Remote
 	return nil
 }
 
+func (x *FetcherConfiguration) GetPolicy() *FetchPolicy {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
 type isFetcherConfiguration_Backend interface {
 	isFetcherConfiguration_Backend()
 }
@@ -122,6 +182,50 @@ func (*FetcherConfiguration_Error) isFetcherConfiguration_Backend() {}
 
 func (*FetcherConfiguration_RemoteExecution) isFetcherConfiguration_Backend() {}
 
+type FetchPolicy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rules         []*FetchPolicy_Rule    `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FetchPolicy) Reset() {
+	*x = FetchPolicy{}
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FetchPolicy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FetchPolicy) ProtoMessage() {}
+
+func (x *FetchPolicy) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FetchPolicy.ProtoReflect.Descriptor instead.
+func (*FetchPolicy) Descriptor() ([]byte, []int) {
+	return file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *FetchPolicy) GetRules() []*FetchPolicy_Rule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
 type FetcherConfiguration_HttpFetcherConfiguration struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Client        *client.Configuration  `protobuf:"bytes,3,opt,name=client,proto3" json:"client,omitempty"`
@@ -131,7 +235,7 @@ type FetcherConfiguration_HttpFetcherConfiguration struct {
 
 func (x *FetcherConfiguration_HttpFetcherConfiguration) Reset() {
 	*x = FetcherConfiguration_HttpFetcherConfiguration{}
-	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[1]
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -143,7 +247,7 @@ func (x *FetcherConfiguration_HttpFetcherConfiguration) String() string {
 func (*FetcherConfiguration_HttpFetcherConfiguration) ProtoMessage() {}
 
 func (x *FetcherConfiguration_HttpFetcherConfiguration) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[1]
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -175,7 +279,7 @@ type FetcherConfiguration_RemoteExecutionFetcherConfiguration struct {
 
 func (x *FetcherConfiguration_RemoteExecutionFetcherConfiguration) Reset() {
 	*x = FetcherConfiguration_RemoteExecutionFetcherConfiguration{}
-	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[2]
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -187,7 +291,7 @@ func (x *FetcherConfiguration_RemoteExecutionFetcherConfiguration) String() stri
 func (*FetcherConfiguration_RemoteExecutionFetcherConfiguration) ProtoMessage() {}
 
 func (x *FetcherConfiguration_RemoteExecutionFetcherConfiguration) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[2]
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -210,20 +314,84 @@ func (x *FetcherConfiguration_RemoteExecutionFetcherConfiguration) GetExecutionC
 	return nil
 }
 
+type FetchPolicy_Rule struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UriRegex      string                 `protobuf:"bytes,1,opt,name=uri_regex,json=uriRegex,proto3" json:"uri_regex,omitempty"`
+	Action        FetchPolicy_Action     `protobuf:"varint,2,opt,name=action,proto3,enum=buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy_Action" json:"action,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FetchPolicy_Rule) Reset() {
+	*x = FetchPolicy_Rule{}
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FetchPolicy_Rule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FetchPolicy_Rule) ProtoMessage() {}
+
+func (x *FetchPolicy_Rule) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FetchPolicy_Rule.ProtoReflect.Descriptor instead.
+func (*FetchPolicy_Rule) Descriptor() ([]byte, []int) {
+	return file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDescGZIP(), []int{1, 0}
+}
+
+func (x *FetchPolicy_Rule) GetUriRegex() string {
+	if x != nil {
+		return x.UriRegex
+	}
+	return ""
+}
+
+func (x *FetchPolicy_Rule) GetAction() FetchPolicy_Action {
+	if x != nil {
+		return x.Action
+	}
+	return FetchPolicy_ACTION_UNSPECIFIED
+}
+
 var File_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto protoreflect.FileDescriptor
 
 const file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDesc = "" +
 	"\n" +
-	"`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x12-buildbarn.configuration.bb_remote_asset.fetch\x1a\x17google/rpc/status.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto\"\xd8\x04\n" +
+	"`github.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetch/fetcher.proto\x12-buildbarn.configuration.bb_remote_asset.fetch\x1a\x17google/rpc/status.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/client/client.proto\"\xac\x05\n" +
 	"\x14FetcherConfiguration\x12r\n" +
 	"\x04http\x18\x02 \x01(\v2\\.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfigurationH\x00R\x04http\x12*\n" +
 	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusH\x00R\x05error\x12\x94\x01\n" +
-	"\x10remote_execution\x18\x04 \x01(\v2g.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfigurationH\x00R\x0fremoteExecution\x1ar\n" +
+	"\x10remote_execution\x18\x04 \x01(\v2g.buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfigurationH\x00R\x0fremoteExecution\x12R\n" +
+	"\x06policy\x18\x05 \x01(\v2:.buildbarn.configuration.bb_remote_asset.fetch.FetchPolicyR\x06policy\x1ar\n" +
 	"\x18HttpFetcherConfiguration\x12J\n" +
 	"\x06client\x18\x03 \x01(\v22.buildbarn.configuration.http.client.ConfigurationR\x06clientJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\x1a\x83\x01\n" +
 	"#RemoteExecutionFetcherConfiguration\x12\\\n" +
 	"\x10execution_client\x18\x02 \x01(\v21.buildbarn.configuration.grpc.ClientConfigurationR\x0fexecutionClientB\t\n" +
-	"\abackendJ\x04\b\x01\x10\x02BTZRgithub.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetchb\x06proto3"
+	"\abackendJ\x04\b\x01\x10\x02\"\xb0\x02\n" +
+	"\vFetchPolicy\x12U\n" +
+	"\x05rules\x18\x01 \x03(\v2?.buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.RuleR\x05rules\x1a~\n" +
+	"\x04Rule\x12\x1b\n" +
+	"\turi_regex\x18\x01 \x01(\tR\buriRegex\x12Y\n" +
+	"\x06action\x18\x02 \x01(\x0e2A.buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.ActionR\x06action\"J\n" +
+	"\x06Action\x12\x16\n" +
+	"\x12ACTION_UNSPECIFIED\x10\x00\x12\n" +
+	"\n" +
+	"\x06ACCEPT\x10\x01\x12\x12\n" +
+	"\x0eACCEPT_REFRESH\x10\x02\x12\b\n" +
+	"\x04DENY\x10\x03BTZRgithub.com/buildbarn/bb-remote-asset/pkg/proto/configuration/bb_remote_asset/fetchb\x06proto3"
 
 var (
 	file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDescOnce sync.Once
@@ -237,26 +405,33 @@ func file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote
 	return file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDescData
 }
 
-var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_goTypes = []any{
-	(*FetcherConfiguration)(nil),                                     // 0: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration
-	(*FetcherConfiguration_HttpFetcherConfiguration)(nil),            // 1: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfiguration
-	(*FetcherConfiguration_RemoteExecutionFetcherConfiguration)(nil), // 2: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfiguration
-	(*status.Status)(nil),                                            // 3: google.rpc.Status
-	(*client.Configuration)(nil),                                     // 4: buildbarn.configuration.http.client.Configuration
-	(*grpc.ClientConfiguration)(nil),                                 // 5: buildbarn.configuration.grpc.ClientConfiguration
+	(FetchPolicy_Action)(0),                                          // 0: buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.Action
+	(*FetcherConfiguration)(nil),                                     // 1: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration
+	(*FetchPolicy)(nil),                                              // 2: buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy
+	(*FetcherConfiguration_HttpFetcherConfiguration)(nil),            // 3: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfiguration
+	(*FetcherConfiguration_RemoteExecutionFetcherConfiguration)(nil), // 4: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfiguration
+	(*FetchPolicy_Rule)(nil),                                         // 5: buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.Rule
+	(*status.Status)(nil),                                            // 6: google.rpc.Status
+	(*client.Configuration)(nil),                                     // 7: buildbarn.configuration.http.client.Configuration
+	(*grpc.ClientConfiguration)(nil),                                 // 8: buildbarn.configuration.grpc.ClientConfiguration
 }
 var file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_depIdxs = []int32{
-	1, // 0: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.http:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfiguration
-	3, // 1: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.error:type_name -> google.rpc.Status
-	2, // 2: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.remote_execution:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfiguration
-	4, // 3: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfiguration.client:type_name -> buildbarn.configuration.http.client.Configuration
-	5, // 4: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfiguration.execution_client:type_name -> buildbarn.configuration.grpc.ClientConfiguration
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	3, // 0: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.http:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfiguration
+	6, // 1: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.error:type_name -> google.rpc.Status
+	4, // 2: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.remote_execution:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfiguration
+	2, // 3: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.policy:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy
+	5, // 4: buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.rules:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.Rule
+	7, // 5: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.HttpFetcherConfiguration.client:type_name -> buildbarn.configuration.http.client.Configuration
+	8, // 6: buildbarn.configuration.bb_remote_asset.fetch.FetcherConfiguration.RemoteExecutionFetcherConfiguration.execution_client:type_name -> buildbarn.configuration.grpc.ClientConfiguration
+	0, // 7: buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.Rule.action:type_name -> buildbarn.configuration.bb_remote_asset.fetch.FetchPolicy.Action
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() {
@@ -276,13 +451,14 @@ func file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDesc), len(file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   3,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_goTypes,
 		DependencyIndexes: file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_depIdxs,
+		EnumInfos:         file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_enumTypes,
 		MessageInfos:      file_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto_msgTypes,
 	}.Build()
 	File_github_com_buildbarn_bb_remote_asset_pkg_proto_configuration_bb_remote_asset_fetch_fetcher_proto = out.File

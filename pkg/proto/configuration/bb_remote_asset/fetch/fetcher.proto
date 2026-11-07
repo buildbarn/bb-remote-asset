@@ -38,6 +38,9 @@ message FetcherConfiguration {
     RemoteExecutionFetcherConfiguration remote_execution = 4;
   }
 
+  // Optional: A policy to restrict or force refresh of fetched assets.
+  FetchPolicy policy = 5;
+
   message HttpFetcherConfiguration {
     // Formerly used to specify CAS
     reserved 1;
@@ -53,4 +56,20 @@ message FetcherConfiguration {
   message RemoteExecutionFetcherConfiguration {
     buildbarn.configuration.grpc.ClientConfiguration execution_client = 2;
   }
+}
+
+message FetchPolicy {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    ACCEPT = 1;
+    ACCEPT_REFRESH = 2;
+    DENY = 3;
+  }
+
+  message Rule {
+    string uri_regex = 1;
+    Action action = 2;
+  }
+
+  repeated Rule rules = 1;
 }
