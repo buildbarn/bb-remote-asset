@@ -1,6 +1,6 @@
 module github.com/buildbarn/bb-remote-asset
 
-go 1.27.3
+go 1.27.4
 
 // rules_go doesn't support gomock's package mode.
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
@@ -108,7 +108,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	golang.org/x/tools v0.50.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/api v0.300.0 // indirect
 	google.golang.org/genproto v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
